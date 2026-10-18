@@ -174,7 +174,21 @@ node --test test/*.test.mjs   # all unit tests, or: npm test (about 30 s, mostly
 Tests cover: solver optimality on hand-built boards and against an independent IDDFS, the explainer replay
 (emitted steps reach the solved state in exactly `optimal` steps), every shipped set re-verified, generator
 determinism, the headless game session used by the UI, scoring, storage, timer, and repo content rules
-(no Unicode dashes, disclaimer in every page footer).
+(no Unicode dashes, disclaimer in every page footer). Phase 2 adds:
+
+* `recorder.test.mjs`: event timestamps and metrics (first-move latency, longest pause, net and gross moves), end is final,
+  save and reload, run summaries, migration of unversioned data, malformed records dropped, newer-version data left
+  untouched (read only), corrupt JSON kept aside, size limits, quota pruning, export, merge and replace import, backup
+  parsing, progress merge.
+* `coach.test.mjs`: optimal play gives no fix items, alternative optimal orders are not mistakes, wasted moves, oscillation,
+  premature ball moves (and the right move after waste is not one), off-line pieces, divergence with the better move (deep
+  and stored-line modes), undo and reset, latency against puzzle, set and pace baselines, skip and time-out costs, corrupt
+  logs, habit ranking, run-level coaching, all shipped puzzles of sets 1 to 3, and a set 5 search budget.
+* `analytics.test.mjs`: mean, median, SD, moving average (partial windows, gaps, bad windows), trend line, jump detection
+  (too little history, flat history, step ups, gaps, k and window), first against last runs, day streaks across a month
+  boundary, run series rates, per-set tables, the summary sentences, sample data, chart ticks.
+* `stream.test.mjs`: all 8 symmetries keep the optimum and the stored line, shuffled pool per seed, fresh puzzles after the
+  pool with duplicates dropped, instant variants, endless draws, fresh puzzle determinism, the tutorial puzzle.
 
 ## Deploy to GitHub Pages
 

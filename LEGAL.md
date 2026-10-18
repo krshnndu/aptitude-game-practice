@@ -14,4 +14,4 @@ Practice scores are for self-study only. They do not predict, represent or repla
 
 ## Privacy
 
-The site has no accounts, cookies, analytics, trackers or third party requests. Progress is stored only in the visitor's own browser (localStorage key `cogprep.progress.v1`) and can be cleared from the Block Slide page or through browser settings.
+The site has no accounts, cookies, analytics, trackers or third party requests. Progress and the play history behind the coach and the analytics page are stored only in the visitor's own browser (localStorage keys `cogprep.progress.v1` and `cogprep.attempts.v1`). Progress can be cleared from the Block Slide page, the history from the analytics page (after an optional JSON export), and both through browser settings. Nothing is sent anywhere.
