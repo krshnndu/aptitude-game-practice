@@ -1,0 +1,14 @@
+{
+  "name": "cognitive-practice-games",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Free practice for game-based cognitive aptitude assessments. Static site, no dependencies.",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "gen": "node tools/gen.mjs",
+    "verify": "node tools/verify.mjs",
+    "serve": "python3 -m http.server 8000"
+  },
+  "license": "MIT"
+}
