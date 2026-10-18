@@ -56,7 +56,7 @@ export const HABITS = {
   },
   hints: {
     label: 'Relying on hints',
-    tip: 'The timed run has no hints. Try the puzzle again without them, using the steps in the explanation.',
+    tip: 'The timed test has no hints. Try the puzzle again without them, using the steps in the explanation.',
   },
   'skip-late': {
     label: 'Skipping too late',

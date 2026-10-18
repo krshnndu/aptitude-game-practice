@@ -1,8 +1,9 @@
-// Operator Switch UI: set menu, practice mode, timed run (exam mode), coach and explanation panels.
+// Operator Switch UI: set menu, practice mode, timed test, coach and explanation panels.
 // Rules live in state.js; this file only renders and wires input. Every attempt is logged through
 // the core recorder and reviewed by the coach.
 
 import { el } from '../../core/dom.js';
+import { gameStart, setActions, setListHead, lockedHint, lockedPage, progressLine, unlockToggle, trackModes } from '../../core/start-ui.js';
 import { runExtras } from '../../core/board.js';
 import { Countdown, formatClock } from '../../core/timer.js';
 import { createStore } from '../../core/store.js';
@@ -398,42 +399,29 @@ function setMeta(cfg) {
 
 function renderMenu(ctx) {
   const { root } = ctx;
-  const unlockToggle = el('input', {
-    type: 'checkbox',
-    id: 'os-unlock-all',
-    onchange: (e) => {
-      store.setUnlockAll(e.target.checked);
-      ctx.rerender();
-    },
-  });
-  unlockToggle.checked = store.unlockAll();
   const example = { kind: 'forward', n: 4, start: 'CSTD', chains: [['3142']] };
-
+  trackModes(root, GAME_ID);
   root.append(
-    el('div', { class: 'page-head' },
-      el('h1', { text: 'Operator Switch' }),
-      el('p', { class: 'lede' },
-        'Four shapes (five in the last set) sit in numbered slots. Each box is a four digit code that rearranges them: ',
-        'slot 1 takes the item from the position named by the first digit, slot 2 from the second digit, and so on. ',
-        'Work out where the shapes end up after a chain of boxes, or which box is missing.'),
-    ),
-    el('figure', { class: 'os-example' },
-      el('div', { class: 'os-chain-body' },
-        rowView(example.start, { label: 'Example start', caption: 'Start', size: 'sm' }),
-        arrow(), opBox('3142', 1, 4), arrow(),
-        rowView('TCDS', { label: 'Example result', caption: 'Result', size: 'sm' })),
-      el('figcaption', { class: 'muted small', text: 'Box 3 1 4 2: slot 1 takes position 3 (triangle), slot 2 position 1 (circle), slot 3 position 4 (diamond), slot 4 position 2 (square).' }),
-    ),
-    el('div', { class: 'mode-explainer' },
-      el('div', {}, el('h2', { text: 'Practice' }), el('p', { text: 'One puzzle, no clock, with hints. A wrong pick is crossed out and you can try again. Afterwards the coach reviews your answers and the solution is worked step by step.' })),
-      el('div', {}, el('h2', { text: 'Timed run (exam mode)' }), el('p', { text: '6:00 on the clock and puzzles keep coming until time is up. No hints, one answer per puzzle, and a skipped puzzle never comes back. Correct +1, wrong loses a fraction, skip 0.' })),
-    ),
-    el('div', { class: 'toolbar os-toolbar' },
-      el('div', { class: 'os-unlock' },
-        el('label', { class: 'toggle', for: 'os-unlock-all' }, unlockToggle, ' Unlock all sets'),
-        el('span', { class: 'muted small', text: `Off by default: sets open at ${pct(UNLOCK_THRESHOLD)} average in the set before. The switch is shared by every game on this site.` }),
-      ),
-      el('a', { class: 'btn', href: '#/analytics' }, 'Progress and analytics'),
+    gameStart({
+      game: GAME_ID,
+      idOf: puzzleId,
+      lede: 'Work out where the shapes end up after a chain of reordering boxes, or which box is missing.',
+      rules: [el('p', {}, 'Four shapes (five in the last set) sit in numbered slots. Each box is a four digit code that rearranges them: ',
+        'slot 1 takes the item from the position named by the first digit, slot 2 from the second digit, and so on.'),
+      el('figure', { class: 'os-example' },
+        el('div', { class: 'os-chain-body' },
+          rowView(example.start, { label: 'Example start', caption: 'Start', size: 'sm' }),
+          arrow(), opBox('3142', 1, 4), arrow(),
+          rowView('TCDS', { label: 'Example result', caption: 'Result', size: 'sm' })),
+        el('figcaption', { class: 'muted small', text: 'Box 3 1 4 2: slot 1 takes position 3 (triangle), slot 2 position 1 (circle), slot 3 position 4 (diamond), slot 4 position 2 (square).' }))],
+      practiceText: 'One puzzle, no clock, with hints. A wrong pick is crossed out and you can try again. Afterwards the coach reviews your answers and the solution is worked step by step.',
+      timedText: '6 minutes on the clock and puzzles keep coming until time is up. No hints, one answer per puzzle, and a skipped puzzle never comes back. Correct +1, wrong loses a fraction, skip 0.',
+      setName: (s) => `Set ${s}: ${SET_CONFIGS[s - 1].name}`,
+    }),
+    setListHead(),
+    el('div', { class: 'toolbar' },
+      unlockToggle('os-unlock-all', ctx.rerender),
+      el('a', { class: 'btn', href: '#/analytics' }, 'My progress'),
       typeof store.resetGame === 'function'
         ? el('button', {
           type: 'button',
@@ -469,25 +457,15 @@ function setCard(cfg) {
       el('span', { class: `badge ${open ? 'badge-ok' : 'badge-soon'}`, text: open ? 'Open' : 'Locked' }),
     ),
     el('p', { class: 'set-meta', text: setMeta(cfg) }),
-    el('p', { class: 'set-progress' },
-      `Best timed run score: ${round2(entry.bestScore)} (${pct(entry.bestAvg)} average)`,
-      ` | Practice average: ${pct(practiceAvg)}`),
+    progressLine(entry, practiceAvg),
     open
-      ? el('div', { class: 'set-actions' },
-        el('div', { class: 'chips', role: 'group', 'aria-label': `Practice puzzles in set ${cfg.set}` }, chips),
-        el('a', { class: 'btn btn-primary', href: `#/${GAME_ID}/run/${cfg.set}` }, 'Start timed run (6:00)'),
-        studyLink(GAME_ID, cfg.set),
-      )
-      : el('p', { class: 'muted', text: `Reach ${pct(UNLOCK_THRESHOLD)} average in set ${cfg.set - 1} (a timed run, or practice bests across all its puzzles) to unlock, or tick Unlock all sets.` }),
+      ? setActions({ game: GAME_ID, set: cfg.set, idOf: puzzleId, chips, unit: 'puzzle' })
+      : lockedHint(cfg.set, 'puzzle'),
   );
 }
 
 function lockedNotice(root, setNo) {
-  root.append(el('section', { class: 'prose' },
-    el('h1', { text: `Set ${setNo} is locked` }),
-    el('p', { text: `Reach ${pct(UNLOCK_THRESHOLD)} average in set ${setNo - 1}, or turn on Unlock all sets.` }),
-    el('p', {}, el('a', { class: 'btn', href: `#/${GAME_ID}` }, 'Back to sets')),
-  ));
+  lockedPage(root, GAME_ID, setNo, 'puzzle');
 }
 
 // ---------------------------------------------------------------- practice
@@ -587,7 +565,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
   });
 }
 
-// ---------------------------------------------------------------- timed run (exam mode)
+// ---------------------------------------------------------------- timed test
 
 function setExamChrome(on) {
   document.body.classList.toggle('exam-active', on);
@@ -607,7 +585,7 @@ async function renderRun(ctx, setNo) {
 
   const head = el('div', { class: 'page-head play-head' },
     el('p', { class: 'crumbs' }, el('a', { href: `#/${GAME_ID}` }, 'Operator Switch'), ` / Set ${setNo}: ${cfg.name}`),
-    el('h1', {}, 'Timed run'),
+    el('h1', {}, 'Timed test'),
   );
   const body = el('div', {});
   root.append(head, body);

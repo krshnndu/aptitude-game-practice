@@ -55,7 +55,7 @@ export function noteAttempt(game, attempt, findings, puzzle, opts = {}) {
   });
 }
 
-// After a timed run's coaching: perPuzzle[i] holds the findings (or { findings }) of attempts[i].
+// After a timed test's coaching: perPuzzle[i] holds the findings (or { findings }) of attempts[i].
 export function noteRun(game, run, attempts, perPuzzle, puzzlesById) {
   return safe(() => {
     const get = (id) => (puzzlesById instanceof Map ? puzzlesById.get(id) : puzzlesById?.[id]);

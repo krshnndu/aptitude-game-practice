@@ -1,8 +1,9 @@
-// Pattern Rule UI: set menu, practice, pre-run tutorial, timed run (exam mode), coach and the
+// Pattern Rule UI: set menu, practice, pre-run tutorial, timed test, coach and the
 // worked explanation. Game rules live in state.js, reasons in explain.js, coaching in coach.js;
 // this file only renders and wires input. Every attempt is logged through the core recorder.
 
 import { el } from '../../core/dom.js';
+import { gameStart, setActions, setListHead, lockedHint, lockedPage, progressLine, unlockToggle, trackModes } from '../../core/start-ui.js';
 import { runExtras } from '../../core/board.js';
 import { Countdown, formatClock } from '../../core/timer.js';
 import { createStore } from '../../core/store.js';
@@ -365,30 +366,23 @@ function outcomeOf(session) {
 
 function renderMenu(ctx) {
   const { root } = ctx;
-  const unlockToggle = el('input', {
-    type: 'checkbox',
-    id: 'pr-unlock-all',
-    onchange: (e) => {
-      store.setUnlockAll(e.target.checked);
-      ctx.rerender();
-    },
-  });
-  unlockToggle.checked = store.unlockAll();
+  trackModes(root, GAME_ID);
   root.append(
-    el('div', { class: 'page-head' },
-      el('h1', { text: 'Pattern Rule' }),
-      el('p', { class: 'lede' },
-        'Some panels follow a hidden rule and some do not. Work out the rule, then select every candidate that follows it. ',
+    gameStart({
+      game: GAME_ID,
+      idOf: puzzleId,
+      lede: 'Spot the rule that separates the panels that fit from those that do not.',
+      rules: [el('p', {}, 'Some panels follow a hidden rule and some do not. Work out the rule, then select every candidate that follows it. ',
         'A rule is one feature, or two features together: number of shapes, shape type, fill, direction, size, position, mirror symmetry, or how two shapes relate.'),
-    ),
-    shapeKey(),
-    el('div', { class: 'mode-explainer' },
-      el('div', {}, el('h2', { text: 'Practice' }), el('p', { text: 'One puzzle, no clock, with hints. After you answer, every candidate is marked, the rule is named, and a dimension scan shows how to find it.' })),
-      el('div', {}, el('h2', { text: 'Timed run (exam mode)' }), el('p', { text: '6:00 on the clock and puzzles keep coming. No hints, no feedback until the end, and a skipped puzzle never comes back. Each exactly right answer scores 1.' })),
-    ),
+      shapeKey()],
+      practiceText: 'One puzzle, no clock, with hints. After you answer, every candidate is marked, the rule is named, and a feature by feature scan shows how to find it.',
+      timedText: '6 minutes on the clock and puzzles keep coming. No hints, no feedback until the end, and a skipped puzzle never comes back. Each exactly right answer scores 1.',
+      setName: (s) => `Set ${s}: ${SET_CONFIGS[s - 1].name}`,
+    }),
+    setListHead(),
     el('div', { class: 'toolbar' },
-      el('label', { class: 'toggle pr-unlock', for: 'pr-unlock-all' }, unlockToggle, ' Unlock all sets'),
-      el('a', { class: 'btn', href: '#/analytics' }, 'Progress and analytics'),
+      unlockToggle('pr-unlock-all', ctx.rerender),
+      el('a', { class: 'btn', href: '#/analytics' }, 'My progress'),
       el('button', {
         type: 'button',
         class: 'btn btn-quiet',
@@ -400,7 +394,6 @@ function renderMenu(ctx) {
         },
       }, 'Clear my progress'),
     ),
-    el('p', { class: 'muted small', text: 'Unlock all sets is off by default; it applies to every game on this site.' }),
     el('ol', { class: 'set-list', role: 'list' }, SET_CONFIGS.map(setCard)),
   );
 }
@@ -423,21 +416,15 @@ function setCard(cfg) {
       el('span', { class: `badge ${open ? 'badge-ok' : 'badge-soon'}`, text: open ? 'Open' : 'Locked' }),
     ),
     el('p', { class: 'set-meta' }, `${cfg.blurb} ${cfg.fits} fitting and ${cfg.counters} non-fitting ${cfg.counters === 1 ? 'example' : 'examples'}, ${cfg.candidates} candidates. Pace: about ${cfg.paceSec} s per puzzle.`),
-    el('p', { class: 'set-progress' }, `Best timed run score: ${round2(entry.bestScore)} (${pct(entry.bestAvg)} average) | Practice: ${pct(practiceAvg)}`),
+    progressLine(entry, practiceAvg),
     open
-      ? el('div', { class: 'set-actions' },
-        el('div', { class: 'chips', role: 'group', 'aria-label': `Practice puzzles in set ${cfg.set}` }, chips),
-        el('a', { class: 'btn btn-primary', href: `${BASE}/run/${cfg.set}` }, 'Start timed run (6:00)'),
-        studyLink(GAME_ID, cfg.set))
-      : el('p', { class: 'muted', text: `Reach ${pct(UNLOCK_THRESHOLD)} in set ${cfg.set - 1} (a timed run, or practice across all its puzzles) to unlock, or tick Unlock all sets.` }),
+      ? setActions({ game: GAME_ID, set: cfg.set, idOf: puzzleId, chips, unit: 'puzzle' })
+      : lockedHint(cfg.set, 'puzzle'),
   );
 }
 
 function lockedNotice(root, setNo) {
-  root.append(el('section', { class: 'prose' },
-    el('h1', { text: `Set ${setNo} is locked` }),
-    el('p', { text: `Reach ${pct(UNLOCK_THRESHOLD)} in set ${setNo - 1}, or turn on Unlock all sets.` }),
-    el('p', {}, el('a', { class: 'btn', href: BASE }, 'Back to sets'))));
+  lockedPage(root, GAME_ID, setNo, 'puzzle');
 }
 
 // ---------------------------------------------------------------- practice
@@ -545,7 +532,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
   });
 }
 
-// ---------------------------------------------------------------- timed run
+// ---------------------------------------------------------------- timed test
 
 function setExamChrome(on) {
   document.body.classList.toggle('exam-active', on);
@@ -563,7 +550,7 @@ async function renderRun(ctx, setNo) {
 
   const head = el('div', { class: 'page-head play-head' },
     el('p', { class: 'crumbs' }, el('a', { href: BASE }, 'Pattern Rule'), ` / Set ${setNo}: ${cfg.name}`),
-    el('h1', {}, 'Timed run'));
+    el('h1', {}, 'Timed test'));
   const body = el('div', {});
   root.append(head, body);
 

@@ -35,7 +35,7 @@ export function dvsPanel(game, attempt, puzzle, opts) {
   return dvsTable(computeDvs(game, attempt, puzzle, { deep: true }), opts);
 }
 
-// End of a timed run: one collapsible did vs should per puzzle, mistakes open.
+// End of a timed test: one collapsible did vs should per puzzle, mistakes open.
 // results: [{ attempt, puzzle }].
 export function dvsRunSection(game, results) {
   const blocks = results.map((r, i) => {

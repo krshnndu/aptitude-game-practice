@@ -63,15 +63,15 @@ export async function compareStrip(game, set) {
 const GAME_NAMES = { blockslide: 'Block Slide', latinsquare: 'Latin Square', gridmemory: 'Grid Memory', operatorswitch: 'Operator Switch', digitequation: 'Digit Equation', patternrule: 'Pattern Rule' };
 
 export function mountBoard(main) {
-  const game = el('select', {}, Object.entries(GAME_NAMES).map(([k, v]) => el('option', { value: k }, v)));
-  const set = el('select', {}, [1, 2, 3, 4, 5].map((n) => el('option', { value: n }, 'Set ' + n)));
-  const week = el('select', {}, el('option', { value: '0' }, 'All time'), el('option', { value: '1' }, 'This week'));
+  const game = el('select', { id: 'lb-game' }, Object.entries(GAME_NAMES).map(([k, v]) => el('option', { value: k }, v)));
+  const set = el('select', { id: 'lb-set' }, [1, 2, 3, 4, 5].map((n) => el('option', { value: n }, 'Set ' + n)));
+  const week = el('select', { id: 'lb-week' }, el('option', { value: '0' }, 'All time'), el('option', { value: '1' }, 'This week'));
   const out = el('div', { class: 'board-out' });
-  const nickIn = el('input', { type: 'text', maxlength: 16, placeholder: 'Nickname (optional)', value: nick() });
+  const nickIn = el('input', { type: 'text', id: 'lb-nick', maxlength: 16, placeholder: 'Nickname (optional)', value: nick() });
   const nickMsg = el('span', { class: 'muted' }, '');
-  const cmp = el('input', { type: 'checkbox' }); cmp.checked = compareOn();
+  const cmp = el('input', { type: 'checkbox', id: 'lb-cmp' }); cmp.checked = compareOn();
   cmp.addEventListener('change', () => setCompare(cmp.checked));
-  const save = el('button', { type: 'button', onclick: () => { setNick(nickIn.value); nickMsg.textContent = 'Saved. It applies from your next run.'; } }, 'Save nickname');
+  const save = el('button', { type: 'button', class: 'btn', onclick: () => { setNick(nickIn.value); nickMsg.textContent = 'Saved. It applies from your next run.'; } }, 'Save nickname');
   async function load() {
     out.replaceChildren(el('p', { class: 'muted' }, 'Loading...'));
     try {
@@ -79,20 +79,21 @@ export function mountBoard(main) {
       const rows = d.top.map((r) => el('li', {}, `#${r.rank} ${r.name}: ${r.score} points (${r.solved} solved)`));
       out.replaceChildren(
         el('p', {}, `${d.players} player${d.players === 1 ? '' : 's'}${d.median !== null ? `, median score ${d.median}` : ''}.`),
-        d.top.length ? el('ol', { class: 'board-list' }, rows) : el('p', { class: 'muted' }, 'No runs yet. Be the first.'),
-        d.me ? el('p', {}, `You: rank ${d.me.rank} of ${d.me.of}`, d.players >= d.minForPercentile ? `, ahead of ${d.me.percentile}%. Title: ` : '', d.players >= d.minForPercentile ? el('strong', {}, titleFor(d.me.percentile)) : '') : el('p', { class: 'muted' }, 'Finish a timed run on this set to appear here.'),
+        d.top.length ? el('ol', { class: 'board-list' }, rows) : el('p', { class: 'muted' }, 'No scores yet for this set. Finish a timed test to be the first.'),
+        d.me ? el('p', {}, `You: rank ${d.me.rank} of ${d.me.of}`, d.players >= d.minForPercentile ? `, ahead of ${d.me.percentile}%. Title: ` : '', d.players >= d.minForPercentile ? el('strong', {}, titleFor(d.me.percentile)) : '') : el('p', { class: 'muted' }, 'Finish a timed test on this set to appear here.'),
       );
-    } catch { out.replaceChildren(el('p', { class: 'muted' }, 'Leaderboard is offline right now. Practice still works and runs are retried later.')); }
+    } catch { out.replaceChildren(el('p', { class: 'muted' }, 'The leaderboard is offline right now. Practice and timed tests still work, and your scores are sent when it is back.')); }
   }
   for (const s of [game, set, week]) s.addEventListener('change', load);
   main.append(
     el('h1', {}, 'Leaderboard'),
-    el('p', {}, 'Every finished timed run uploads its score with a random ID. No IP address is stored. A nickname is optional and shown publicly.'),
-    el('div', { class: 'board-controls' }, game, set, week),
+    el('p', {}, 'Every finished timed test uploads its score with a random ID. No IP address is stored. A nickname is optional and shown publicly.'),
+    el('div', { class: 'board-controls toolbar' },
+      el('label', { for: 'lb-game' }, 'Game ', game), el('label', { for: 'lb-set' }, 'Set ', set), el('label', { for: 'lb-week' }, 'Period ', week)),
     out,
     el('h2', {}, 'Your settings'),
-    el('div', {}, nickIn, ' ', save, ' ', nickMsg),
-    el('label', {}, cmp, ' Show "you vs others" after each run'),
+    el('div', { class: 'toolbar' }, el('label', { for: 'lb-nick', class: 'sr-only' }, 'Nickname'), nickIn, save, nickMsg),
+    el('label', { class: 'toggle', for: 'lb-cmp' }, cmp, ' Show "you vs others" after each timed test'),
     el('p', { class: 'muted' }, 'Titles by percentile: ' + TITLES.slice().reverse().map(([m, t]) => `${t} (${m}%+)`).join(', ')),
   );
   load();

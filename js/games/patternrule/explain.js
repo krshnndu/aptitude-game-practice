@@ -30,7 +30,7 @@ export const STRATEGY = [
   'Use the does-not-fit panels: a feature they also have is not the whole rule, and the one feature a does-not-fit panel breaks is part of it.',
   'Say the rule as one short sentence before you look at the candidates.',
   'Test each candidate against each part of the rule, one part at a time. Ignore everything else, even when a candidate looks different overall.',
-  'In a timed run, skip when no shared feature stands out after about half the pace guide.',
+  'In a timed test, skip when no shared feature stands out after about half the pace guide.',
 ];
 
 const uniq = (xs) => [...new Set(xs)];

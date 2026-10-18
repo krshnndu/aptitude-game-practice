@@ -99,7 +99,7 @@ export function createStore(storage = defaultStorage()) {
       return load().unlockAll;
     },
     // Set 1 is always open. Set k opens when set k-1 reaches the threshold
-    // in a timed run, or across practice bests for all its puzzles.
+    // in a timed test, or across practice bests for all its puzzles.
     isUnlocked(game, setNo, setSize) {
       if (setNo <= 1 || this.unlockAll()) return true;
       const prev = this.getSet(game, setNo - 1);

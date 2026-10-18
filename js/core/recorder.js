@@ -10,7 +10,7 @@
 //   undo, reset, hint, and one closing event: solve | skip | timeout.
 // metrics: see computeMetrics().
 //
-// Run record (a timed run): { id, game, set, seed, startedAt, endedAt, budgetMs, durationMs,
+// Run record (a timed test): { id, game, set, seed, startedAt, endedAt, budgetMs, durationMs,
 //   score, attempted, solved, skipped, timedOut, puzzles: [compact per-puzzle rows],
 //   status?: 'complete'|'partial', partial?, exit? } (ended-early runs, see partial.js)
 // Runs carry their own per-puzzle rows, so analytics keep working after old attempts are pruned.

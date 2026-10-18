@@ -627,7 +627,7 @@ export const STRATEGY = [
   'Estimate the size of each side before trying tiles: it rules out most tiles at once.',
   'The tray may hold decoys. Leftover tiles are normal, so do not force them in.',
   'Check with casting out nines, or by multiplying back for a division, before you press Check.',
-  'In a timed run, skip if no blank gives way after about half the pace guide.',
+  'In a timed test, skip if no blank gives way after about half the pace guide.',
 ];
 
 export function resultSummary({ placements, blanks, solved, wrongChecks = 0 }) {

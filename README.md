@@ -9,7 +9,7 @@ Independent practice only: not affiliated with Aon, Capgemini or any employer. S
 
 | Game | Skill | Status |
 |---|---|---|
-| Block Slide | Planning, spatial reasoning | Ready: 5 sets x 10 puzzles, endless timed runs, coach, analytics |
+| Block Slide | Planning, spatial reasoning | Ready: 5 sets x 10 puzzles, endless timed tests, coach, analytics |
 | Latin Square | Deductive reasoning | Coming soon |
 | Grid Memory | Working memory, dual task | Coming soon |
 | Operator Switch | Numerical reasoning | Coming soon |
@@ -23,7 +23,7 @@ One move slides one piece exactly one cell up, down, left or right into empty ce
 Goal: get the ball onto the exit cell on the board edge in the fewest moves.
 
 * **Practice**: one puzzle, no clock, with Undo, Reset and Hint (next best move from your current position).
-* **Timed run (exam mode)**: 6:00 on the clock and the puzzles never run out. A run first serves the set's 10 shipped
+* **Timed test**: 6:00 on the clock and the puzzles never run out. A run first serves the set's 10 shipped
   puzzles in an order shuffled by the run seed, then fresh puzzles of the same band, generated from seeds derived from the
   run seed in a module Web Worker (`gen.worker.js`) so the board never stalls. If no fresh puzzle is ready yet, the run
   serves a rotated or mirrored copy of a shipped puzzle (same optimum by symmetry, available at once). Skip is final.
@@ -32,14 +32,14 @@ Goal: get the ball onto the exit cell on the board edge in the fewest moves.
 * **Pre-run tutorial**: before the clock starts, a rules screen (as in real assessments) and an untimed sample puzzle on the
   exact exam screen.
 * **Coach** (`coach.js`): after each puzzle, and for every puzzle of a run, findings computed by replaying your move log
-  against the optimal solution, each with a plain-English suggestion. After a timed run, run-level coaching adds time per
+  against the optimal solution, each with a plain-English suggestion. After a timed test, run-level coaching adds time per
   puzzle, skip policy, pace against the 6:00 budget and the top 3 habits to fix (see below).
 * **Analytics** (`#/analytics`, "Progress" in the header): charts and tables over your own history (see below).
 * **Review**: after a puzzle (or after a run) the optimal line is replayed step by step with Prev, Next and Auto-play.
   Each step carries a reason computed by `explain.js`, for example
   `Move block A (blue) 1 up: clears cell (4,3) on the ball's route.`
 * **Progress**: localStorage key `cogprep.progress.v1`. The next set unlocks at 70% average efficiency
-  (best timed run, or practice bests across all puzzles of the set). Because runs are endless, a run's average is
+  (best timed test, or practice bests across all puzzles of the set). Because runs are endless, a run's average is
   score / max(10, puzzles reached). An "Unlock all sets" toggle is on the Block Slide page.
 * **Controls**: tap or click a piece (or Tab to it), then arrow keys or the on-screen arrows. Tapping an empty cell next to the
   selected piece also moves it. Esc clears the selection; in practice Z undoes and H asks for a hint.
@@ -60,7 +60,7 @@ Goal: get the ball onto the exit cell on the board edge in the fewest moves.
 `select` (piece, or none), `move` (piece, direction), `blocked` (a move the board refused), `undo`, `reset`, `hint`,
 and one closing event: `solve`, `skip` or `timeout`. Each attempt stores derived metrics: first-move latency (thinking
 time), longest pause between actions, total time, net moves, moves made (undone ones included), optimal, efficiency,
-undo, reset and hint counts, and the outcome. A timed run stores a run record (seed, start, end, score, one compact row per
+undo, reset and hint counts, and the outcome. A timed test stores a run record (seed, start, end, score, one compact row per
 puzzle), so analytics keep working after old attempts are pruned.
 
 * Storage: localStorage key `cogprep.attempts.v1`, `{ v, attempts, runs }`, capped at 1500 attempts and 500 runs (oldest
@@ -102,7 +102,7 @@ for two or more series, a crosshair tooltip (pointer or arrow keys) and a data t
 
 * Summary at the top in plain English, for example `Last 5 runs +22% vs first 5 (average score 6.10 vs 5.00).`, plus the
   trend per run, flagged jumps, change in first-move thinking time, streak and totals. A set filter gives like-for-like views.
-* Charts: score per timed run with a 5-run trailing moving average, a least squares trend line and "jump" labels; puzzles
+* Charts: score per timed test with a 5-run trailing moving average, a least squares trend line and "jump" labels; puzzles
   solved per run; average first-move latency per run; skip rate and wasted-move rate per run; efficiency per set.
 * Jump rule: a run is a jump when it beats the previous best, or the mean of the previous 5 runs, by more than 1 population
   standard deviation of all earlier runs (needs 3 earlier runs). With a flat history (SD 0) any rise counts, and after a
@@ -135,18 +135,31 @@ Design spec: `docs/learning-spec.md`. Everything stays in the browser under the 
   game, diff any two), print view and standalone HTML export.
 * Did vs should (`js/core/dvs.js`, pure; `js/core/dvs-ui.js`): each game's `review.js` exports `didVsShould(attempt,
   puzzle)` returning side-by-side rows (what you did, what was optimal or correct), the first divergence and a plain
-  note. Shown after every practice puzzle, per puzzle at the end of a timed run, in the replay Compare view, and as
+  note. Shown after every practice puzzle, per puzzle at the end of a timed test, in the replay Compare view, and as
   "Did vs should: recent mistakes" on each report. Each attempt keeps compact codes `dvs: { ans, opt, div, lat }` (ASCII
   game codes, divergence step, ms to divergence) in `cogprep.attempts.v1`; the item telemetry event carries the same
   codes cut to 36 characters (the event stays under 512 bytes).
 * Telemetry for the learning pages (`ev()` in `board.js`): `ach_view`, `ach_unlock`, `report_view`, `review_open`,
   `review_done`.
 
+## Onboarding and plain-language UX
+
+Logic in `js/core/ux.js` (pure, tested in `test/ux.test.mjs`), widgets in `js/core/start-ui.js`. Audit: `docs/ux-audit.md`.
+
+* Game start: two large cards, Practice (no timer, hints and solutions) and Timed test (6 min), opening the
+  recommended set (first open set not yet passed) and puzzle (first unplayed, then first imperfect); Study mode and a
+  How to play panel. Each set card has Practice, Timed test and Study mode buttons, then the puzzle picker.
+* Home: dismissible welcome strip (3 steps), status chip per game (New, In progress, Mastered = set 5 passed),
+  continue card (unfinished run, else last game played) and a suggested next step.
+* One-time practice tips per game (Got it, Skip all tips); About has Show tips again. Flags live in `cogprep.ux.v1`.
+* Telemetry: `feat` events `welcome_dismiss` (via start or close), `mode_choice` (mode practice, timed or study),
+  `tip_dismiss`, `tip_skip_all`, `tips_reset`.
+
 ## Flexible exit and study mode
 
 Logic in `js/core/partial.js` (pure), widgets in `js/core/endrun-ui.js`, pages in `js/core/study-page.js`.
 
-* End and review: every timed run (in the exam bar) and every practice puzzle has the button, with a confirm dialog.
+* End and review: every timed test (in the exam bar) and every practice puzzle has the button, with a confirm dialog.
   A route change (page dispose), `pagehide` and the clock running out also end a run; a hidden tab saves a silent
   checkpoint (`recorder.saveRun(run, { silent: true })`, no upload, no `run_end`) that the final save replaces.
 * Runs ended early are saved with `status: 'partial'`, `partial: true` and `exit` (`early`, `nav`, `unload`, `hidden`).
@@ -156,7 +169,7 @@ Logic in `js/core/partial.js` (pure), widgets in `js/core/endrun-ui.js`, pages i
   "not attempted" with the solution on demand, and top 3 takeaways (biggest time sink, repeated mistake pattern, one
   strategy sheet tip) with a link to the review notebook. Shown on every run result.
 * Resume slot `cogprep.resume.v1` (one entry, 7 days): the home page card reopens an unfinished practice puzzle, or
-  offers review of a run that ended early (timed runs restart fresh). Review pages: `#/review/<game>/run/<runId>` and
+  offers review of a run that ended early (timed tests restart fresh). Review pages: `#/review/<game>/run/<runId>` and
   `#/review/<game>/practice/<set>` (this tab's practice session).
 * Study mode `#/study/<game>/<set>`: every puzzle in a set with its walkthrough (each `play.js` exports
   `studyWalkthrough`), no timer, nothing scored or saved.
@@ -182,9 +195,9 @@ js/games/blockslide/solver.js  BFS solver, replay, hints
 js/games/blockslide/gen.js     seeded generator and set configs
 js/games/blockslide/explain.js step reasons, result text, strategy checklist
 js/games/blockslide/coach.js   per-puzzle and run-level coaching from the move log
-js/games/blockslide/stream.js  timed run puzzle stream, board symmetries, fresh puzzles, tutorial puzzle
+js/games/blockslide/stream.js  timed test puzzle stream, board symmetries, fresh puzzles, tutorial puzzle
 js/games/blockslide/gen.worker.js  module worker that generates fresh puzzles during a run
-js/games/blockslide/play.js    UI: menu, practice, tutorial, timed run (exam mode), coach and replay panels
+js/games/blockslide/play.js    UI: menu, practice, tutorial, timed test, coach and replay panels
 data/sets/blockslide/setN.json shipped puzzles with stored optimal solutions
 tools/gen.mjs                  regenerate sets
 tools/verify.mjs               re-verify shipped sets

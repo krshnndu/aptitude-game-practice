@@ -1,4 +1,4 @@
-// Timed run stream: the adaptive staircase and the trial source.
+// Timed test stream: the adaptive staircase and the trial source.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createStaircase, createRunSource, tutorialTrial, maxSpanOf, MIN_LENGTH } from '../js/games/gridmemory/stream.js';

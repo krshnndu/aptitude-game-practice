@@ -3,13 +3,13 @@
 //   time to the first answer (against your own median, else the set's pace guide), each wrong
 //   answer named by the misreading that produces it (recomputed here from the puzzle, see
 //   state.js puzzleMistakes), wasted answers and quick re-guesses in practice, hints, the cost of a
-//   wrong answer in a timed run, and skip timing (with what slot 1 alone would have been worth).
+//   wrong answer in a timed test, and skip timing (with what slot 1 alone would have been worth).
 // coachRun() adds run-level coaching: time per puzzle, accuracy, the most common error type,
 // guessing, skip policy, pace against the 6:00 budget and the top 3 habits to fix.
 //
 // Event mapping onto the core recorder: each answer is a 'move' event with p = option index;
 // 'hint' events are hints; the closing event is solve, skip or timeout. A wrong final answer in a
-// timed run is stored with outcome 'skipped' after its 'move' event (see docs/operatorswitch.md).
+// timed test is stored with outcome 'skipped' after its 'move' event (see docs/operatorswitch.md).
 
 import { MISTAKES, diagnose, wrongPenalty } from './state.js';
 import { eliminate, optionText } from './explain.js';
@@ -201,12 +201,12 @@ export function coachPuzzle(attempt, puzzle, { history = [], paceSec = 20 } = {}
     }
   }
 
-  // Timed run: what the wrong answer cost.
+  // Timed test: what the wrong answer cost.
   if (exam && result === 'wrong') {
     const pen = wrongPenalty(options);
     const sv = slotOneValue(puzzle);
     out.push(finding('exam-wrong-cost', 'info', 1, 'Cost of the wrong answer',
-      `In a timed run a wrong answer costs 1/${options - 1} = ${pen.toFixed(2)} points with ${options} options; a skip costs 0. Slot 1 alone would have left ${plural(sv.left, 'option')}.`,
+      `In a timed test a wrong answer costs 1/${options - 1} = ${pen.toFixed(2)} points with ${options} options; a skip costs 0. Slot 1 alone would have left ${plural(sv.left, 'option')}.`,
       { penalty: pen, slotOneLeft: sv.left }, 'Answer when you have ruled out all but one option, guess only between two, otherwise skip.'));
   }
 

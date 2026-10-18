@@ -14,7 +14,7 @@ export const STRATEGY = [
   'If two or more symbols are left, look for a blank in the same row or column that you can fill first. Its symbol then rules one more out.',
   'Also ask the reverse question: where in this row can the missing symbol still go? If only one open cell is left, it goes there.',
   'Check both lines every time. Most wrong answers are a symbol that was already sitting in the row or column.',
-  'In a timed run, a wrong answer costs points and a skip costs nothing. Skip when you cannot finish the chain in reasonable time.',
+  'In a timed test, a wrong answer costs points and a skip costs nothing. Skip when you cannot finish the chain in reasonable time.',
 ];
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);

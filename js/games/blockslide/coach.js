@@ -7,7 +7,7 @@
 //   a block moved and then straight back (oscillation), undo and reset counts, moves on blocks the
 //   optimal line never touches, the first move that left the optimal line (with the better move and
 //   its reason), and the cost of a skip or a time-out.
-// coachRun() adds run-level coaching for a timed run: time per puzzle, skip policy, pace against
+// coachRun() adds run-level coaching for a timed test: time per puzzle, skip policy, pace against
 // the 6:00 budget, and the top 3 habits to fix.
 
 import { makeBoard, applyMove, ballRoute, canMove, occupancy, stateKey, OPPOSITE, DIRS } from './state.js';
@@ -41,7 +41,7 @@ export const HABITS = {
   },
   undo: {
     label: 'Relying on undo',
-    tip: 'The timed run has no undo. Practise playing the whole line in your head first, then move without taking moves back.',
+    tip: 'The timed test has no undo. Practise playing the whole line in your head first, then move without taking moves back.',
   },
   reset: {
     label: 'Restarting',

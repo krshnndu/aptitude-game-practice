@@ -1,4 +1,4 @@
-// Module worker: generates fresh Block Slide puzzles for a timed run off the main thread.
+// Module worker: generates fresh Block Slide puzzles for a timed test off the main thread.
 // Messages in:  { type: 'start', setNo, seed, count }, { type: 'more', count }
 // Messages out: { type: 'puzzle', k, puzzle } or { type: 'error', k, message }
 

@@ -1,8 +1,9 @@
-// Latin Square UI: set menu, practice mode, timed run (exam mode), coach and the step-by-step
+// Latin Square UI: set menu, practice mode, timed test, coach and the step-by-step
 // explanation. All rules live in state.js and solver.js; this file only renders and wires input.
 // Every attempt is logged through the core recorder and reviewed by coach.js.
 
 import { el } from '../../core/dom.js';
+import { gameStart, setActions, setListHead, lockedHint, lockedPage, progressLine, unlockToggle, trackModes } from '../../core/start-ui.js';
 import { runExtras } from '../../core/board.js';
 import { Countdown, formatClock } from '../../core/timer.js';
 import { createStore } from '../../core/store.js';
@@ -530,25 +531,21 @@ function symbolsLegend() {
 
 function renderMenu(ctx) {
   const { root } = ctx;
-  const unlockToggle = el('input', {
-    type: 'checkbox',
-    id: 'ls-unlock-all',
-    onchange: (e) => {
-      store.setUnlockAll(e.target.checked);
-      ctx.rerender();
-    },
-  });
-  unlockToggle.checked = store.unlockAll();
-
+  trackModes(root, GAME_ID);
   root.append(
-    el('div', { class: 'page-head' }, el('h1', { text: 'Latin Square' }), rulesBlock()),
-    el('div', { class: 'mode-explainer' },
-      el('div', {}, el('h2', { text: 'Practice' }), el('p', { text: 'One puzzle, no clock, with hints. A wrong pick is crossed out with the reason and you pick again. Afterwards the coach reviews your picks and the solution is shown step by step.' })),
-      el('div', {}, el('h2', { text: 'Timed run (exam mode)' }), el('p', { text: '6:00 on the clock, puzzles keep coming. Each answer is final, no hints, and a skipped puzzle never comes back. Right +1, wrong loses a little, skip 0.' })),
-    ),
+    gameStart({
+      game: GAME_ID,
+      idOf: puzzleId,
+      lede: 'Work out which symbol goes in the ? cell: every symbol appears once in each row and column.',
+      rules: [rulesBlock()],
+      practiceText: 'One puzzle, no clock, with hints. A wrong pick is crossed out with the reason and you pick again. Afterwards the coach reviews your picks and the solution is shown step by step.',
+      timedText: '6 minutes on the clock, puzzles keep coming. Each answer is final, no hints, and a skipped puzzle never comes back. Right +1, wrong loses a little, skip 0.',
+      setName: (s) => `Set ${s}: ${SET_CONFIGS[s - 1].name}`,
+    }),
+    setListHead(),
     el('div', { class: 'toolbar' },
-      el('label', { class: 'toggle ls-unlock', for: 'ls-unlock-all' }, unlockToggle, ' Unlock all sets'),
-      el('a', { class: 'btn', href: '#/analytics' }, 'Progress and analytics'),
+      unlockToggle('ls-unlock-all', ctx.rerender),
+      el('a', { class: 'btn', href: '#/analytics' }, 'My progress'),
     ),
     el('ol', { class: 'set-list', role: 'list' }, SET_CONFIGS.map((cfg) => setCard(cfg))),
   );
@@ -580,27 +577,15 @@ function setCard(cfg) {
       el('span', { class: `badge ${open ? 'badge-ok' : 'badge-soon'}`, text: open ? 'Open' : 'Locked' }),
     ),
     el('p', { class: 'set-meta' }, setMeta(cfg)),
-    el('p', { class: 'set-progress' },
-      `Best timed run score: ${round2(entry.bestScore)} (${pct(entry.bestAvg)} average)`,
-      ` | Practice average: ${pct(practiceAvg)}`),
+    progressLine(entry, practiceAvg),
     open
-      ? el('div', { class: 'set-actions' },
-        el('div', { class: 'chips', role: 'group', 'aria-label': `Practice puzzles in set ${cfg.set}` }, chips),
-        el('a', { class: 'btn btn-primary', href: `#/latinsquare/run/${cfg.set}` }, 'Start timed run (6:00)'),
-        studyLink(GAME_ID, cfg.set),
-      )
-      : el('p', { class: 'muted', text: `Reach ${pct(UNLOCK_THRESHOLD)} in set ${cfg.set - 1} (timed run average, or practice bests across all its puzzles) to unlock, or tick Unlock all sets.` }),
+      ? setActions({ game: GAME_ID, set: cfg.set, idOf: puzzleId, chips, unit: 'puzzle' })
+      : lockedHint(cfg.set, 'puzzle'),
   );
 }
 
 function lockedNotice(root, setNo) {
-  root.append(
-    el('section', { class: 'prose' },
-      el('h1', { text: `Set ${setNo} is locked` }),
-      el('p', { text: `Reach ${pct(UNLOCK_THRESHOLD)} in set ${setNo - 1}, or turn on Unlock all sets.` }),
-      el('p', {}, el('a', { class: 'btn', href: '#/latinsquare' }, 'Back to sets')),
-    ),
-  );
+  lockedPage(root, GAME_ID, setNo, 'puzzle');
 }
 
 // ---------------------------------------------------------------- practice
@@ -704,7 +689,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
   });
 }
 
-// ---------------------------------------------------------------- timed run (exam mode)
+// ---------------------------------------------------------------- timed test
 
 function setExamChrome(on) {
   document.body.classList.toggle('exam-active', on);
@@ -725,7 +710,7 @@ async function renderRun(ctx, setNo) {
 
   const head = el('div', { class: 'page-head play-head' },
     el('p', { class: 'crumbs' }, el('a', { href: '#/latinsquare' }, 'Latin Square'), ` / Set ${setNo}: ${cfg.name}`),
-    el('h1', {}, 'Timed run'),
+    el('h1', {}, 'Timed test'),
   );
   const body = el('div', {});
   root.append(head, body);

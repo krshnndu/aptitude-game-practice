@@ -1,8 +1,9 @@
-// Grid Memory UI: set menu, practice mode, timed run (exam mode with an adaptive staircase) and the
+// Grid Memory UI: set menu, practice mode, timed test (exam mode with an adaptive staircase) and the
 // per-trial explanation. Rules and scoring live in state.js; this file renders, runs the timers and
 // wires input. Every attempt is saved through the shared recorder and reviewed by the coach.
 
 import { el } from '../../core/dom.js';
+import { gameStart, setActions, setListHead, lockedHint, lockedPage, progressLine, unlockToggle, trackModes } from '../../core/start-ui.js';
 import { runExtras } from '../../core/board.js';
 import { Countdown, formatClock } from '../../core/timer.js';
 import { createStore } from '../../core/store.js';
@@ -610,32 +611,22 @@ function setMeta(cfg) {
 
 function renderMenu(ctx) {
   const { root } = ctx;
-  const unlockToggle = el('input', {
-    type: 'checkbox',
-    id: 'gm-unlock-all',
-    onchange: (e) => {
-      store.setUnlockAll(e.target.checked);
-      ctx.rerender();
-    },
-  });
-  unlockToggle.checked = store.unlockAll();
-
+  trackModes(root, GAME_ID);
   root.append(
-    el('div', { class: 'page-head' },
-      el('h1', { text: 'Grid Memory' }),
-      el('p', { class: 'lede' },
-        'Cells of a grid light up one at a time. After each one, answer a quick side question before the window closes. ',
-        'At the end, tap the cells in the order they lit. Holding the path in mind while you judge something else is the skill being trained.'),
-    ),
-    el('div', { class: 'mode-explainer' },
-      el('div', {}, el('h2', { text: 'Practice' }), el('p', { text: 'One trial at a time, no run clock, with undo and hints at recall and an optional relaxed mode with no side question window. Afterwards the coach reviews your answers and the path is shown with where you diverged.' })),
-      el('div', {}, el('h2', { text: 'Timed run (exam mode)' }), el('p', { text: '6:00 of trials. Pass a trial (every position right, at most 1 side error) and the next is one cell longer; miss and it is one shorter. No undo, no hints, skips are final. Score is the sum of trial scores; your span is the longest length you passed.' })),
-    ),
+    gameStart({
+      game: GAME_ID,
+      idOf: puzzleId,
+      lede: 'Remember the order cells light up while answering quick side questions in between.',
+      rules: [el('p', {}, 'Cells of a grid light up one at a time. After each one, answer a quick side question before the window closes. ', 'At the end, tap the cells in the order they lit. Holding the path in mind while you judge something else is the skill being trained.'), el('p', { class: 'muted small', text: `Scoring: each position recalled in the right place earns ${POINTS.recall} points and each side question answered right earns ${POINTS.side}; a trial score is points out of the maximum.` })],
+      practiceText: 'One trial at a time, no clock, with undo and hints at recall, and an optional relaxed mode with no time limit on side questions. Afterwards the coach reviews your answers and shows where you went off the path.',
+      timedText: '6 minutes of trials. Pass a trial (every position right, at most 1 side error) and the next is one cell longer; miss and it is one shorter. No undo, no hints, skips are final. Your span is the longest length you passed.',
+      setName: (s) => `Set ${s}: ${SET_CONFIGS[s - 1].name}`,
+    }),
+    setListHead(),
     el('div', { class: 'toolbar' },
-      el('label', { class: 'toggle gm-unlock', for: 'gm-unlock-all' }, unlockToggle, ' Unlock all sets'),
-      el('a', { class: 'btn', href: '#/analytics' }, 'Progress and analytics'),
+      unlockToggle('gm-unlock-all', ctx.rerender),
+      el('a', { class: 'btn', href: '#/analytics' }, 'My progress'),
     ),
-    el('p', { class: 'muted small', text: `Scoring: each position recalled in the right place earns ${POINTS.recall} points and each side question answered right earns ${POINTS.side}; a trial's score is points out of the maximum. Reach ${pct(UNLOCK_THRESHOLD)} average in a set to unlock the next.` }),
     el('ol', { class: 'set-list', role: 'list' }, SET_CONFIGS.map((cfg) => setCard(cfg))),
   );
 }
@@ -660,27 +651,15 @@ function setCard(cfg) {
       el('span', { class: `badge ${open ? 'badge-ok' : 'badge-soon'}`, text: open ? 'Open' : 'Locked' }),
     ),
     el('p', { class: 'set-meta', text: setMeta(cfg) }),
-    el('p', { class: 'set-progress' },
-      `Best timed run score: ${round2(entry.bestScore)} (${pct(entry.bestAvg)} average)`,
-      ` | Practice average: ${pct(practiceAvg)}`),
+    progressLine(entry, practiceAvg),
     open
-      ? el('div', { class: 'set-actions' },
-        el('div', { class: 'chips', role: 'group', 'aria-label': `Practice trials in set ${cfg.set}` }, chips),
-        el('a', { class: 'btn btn-primary', href: `#/gridmemory/run/${cfg.set}` }, 'Start timed run (6:00)'),
-        studyLink(GAME_ID, cfg.set),
-      )
-      : el('p', { class: 'muted', text: `Reach ${pct(UNLOCK_THRESHOLD)} average in set ${cfg.set - 1} (timed run, or practice bests across all its trials) to unlock, or tick Unlock all sets.` }),
+      ? setActions({ game: GAME_ID, set: cfg.set, idOf: puzzleId, chips, unit: 'trial' })
+      : lockedHint(cfg.set, 'trial'),
   );
 }
 
 function lockedNotice(root, setNo) {
-  root.append(
-    el('section', { class: 'prose' },
-      el('h1', { text: `Set ${setNo} is locked` }),
-      el('p', { text: `Reach ${pct(UNLOCK_THRESHOLD)} average in set ${setNo - 1}, or turn on Unlock all sets.` }),
-      el('p', {}, el('a', { class: 'btn', href: '#/gridmemory' }, 'Back to sets')),
-    ),
-  );
+  lockedPage(root, GAME_ID, setNo, 'trial');
 }
 
 // ---------------------------------------------------------------- practice
@@ -796,7 +775,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
   });
 }
 
-// ---------------------------------------------------------------- timed run (exam mode)
+// ---------------------------------------------------------------- timed test
 
 function setExamChrome(on) {
   document.body.classList.toggle('exam-active', on);
@@ -814,7 +793,7 @@ async function renderRun(ctx, setNo) {
 
   const head = el('div', { class: 'page-head play-head' },
     el('p', { class: 'crumbs' }, el('a', { href: '#/gridmemory' }, 'Grid Memory'), ` / Set ${setNo}: ${cfg.name}`),
-    el('h1', {}, 'Timed run'),
+    el('h1', {}, 'Timed test'),
   );
   const body = el('div', {});
   root.append(head, body);

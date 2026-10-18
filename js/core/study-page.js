@@ -69,7 +69,7 @@ export async function mountStudy(main, rest) {
   root.append(list);
   try {
     const data = await loadSetData(game, set);
-    list.replaceChildren(...data.puzzles.map((p, i) => lazySolution(game, p, d.add, `${label[0].toUpperCase()}${label.slice(1)} ${i + 1} (${p.id})`)));
+    list.replaceChildren(...data.puzzles.map((p, i) => lazySolution(game, p, d.add, `${label[0].toUpperCase()}${label.slice(1)} ${i + 1}: show the worked solution`)));
   } catch (err) {
     list.replaceChildren(el('p', { class: 'notice', text: `Could not load set ${set}: ${err.message}` }));
   }
@@ -111,7 +111,7 @@ export async function mountRunReview(main, game, kind, id) {
 
   const tags = learnStore().load().tags ?? {};
   root.append(
-    el('h1', { text: kind === 'run' ? `${gameName(game)}: timed run review, set ${set}` : `${gameName(game)}: practice review, set ${set}` }),
+    el('h1', { text: kind === 'run' ? `${gameName(game)}: timed test review, set ${set}` : `${gameName(game)}: practice review, set ${set}` }),
     run ? el('p', { class: 'muted' }, `${fmtDate(run.startedAt)}. ${isPartial(run) ? 'Ended early.' : 'Ran the full clock.'}`) : el('p', { class: 'muted', text: `${attempts.length} practice ${label}s ${attempts.length === 1 ? 'attempt' : 'attempts'} in this session.` }),
     run ? (partialBanner(run, { label }) ?? el('div', { class: 'score-tiles' },
       el('div', { class: 'tile' }, el('span', { class: 'tile-label', text: 'Run score' }), el('strong', { text: run.score.toFixed(2) })),

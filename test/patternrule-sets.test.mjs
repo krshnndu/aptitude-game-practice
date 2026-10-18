@@ -70,7 +70,7 @@ test('generator is deterministic per seed and differs across seeds', () => {
   assert.notDeepEqual(generateSet(cfg, { count: 3, seed: 1 }).puzzles, generateSet(cfg, { count: 3, seed: 2 }).puzzles);
 });
 
-test('fresh puzzles for timed runs pass the same checks, for every set', () => {
+test('fresh puzzles for timed tests pass the same checks, for every set', () => {
   for (const cfg of SET_CONFIGS) {
     for (const seed of [11, 222, 3333]) {
       const p = generateFresh(cfg.set, seed);

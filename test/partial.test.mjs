@@ -120,7 +120,7 @@ test('resume slot: save, read, expiry, game scoped clear and actions', () => {
   assert.equal(rs.save({ game: 'blockslide', kind: 'run', set: 1, runId: 'bad id!' }, now), null);
   rs.save({ game: 'gridmemory', kind: 'run', set: 3, runId: 'rabc123', attempted: 4, solved: 2, score: 1.5 }, now);
   const act = resumeActions(rs.last(now));
-  assert.equal(act.resumeHref, null, 'timed runs are review only');
+  assert.equal(act.resumeHref, null, 'timed tests are review only');
   assert.equal(act.reviewHref, '#/review/gridmemory/run/rabc123');
   assert.match(act.text, /4 seen, 2 solved, score so far 1.50/);
   const p = resumeActions({ game: 'blockslide', kind: 'practice', set: 2, k: 4, at: now });

@@ -566,7 +566,7 @@ export function generateSet(cfg, { count = PUZZLES_PER_SET, seed = cfg.seed, log
   };
 }
 
-// One fresh puzzle for a timed run (in the browser). Same checks as the shipped sets.
+// One fresh puzzle for a timed test (in the browser). Same checks as the shipped sets.
 export function generateFresh(setNo, seed) {
   const cfg = configFor(setNo);
   const rng = createRng(seed);

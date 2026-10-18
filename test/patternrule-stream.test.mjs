@@ -1,4 +1,4 @@
-// Pattern Rule timed run stream: shuffled pool, fresh puzzles, reshuffled repeats, tutorial puzzle.
+// Pattern Rule timed test stream: shuffled pool, fresh puzzles, reshuffled repeats, tutorial puzzle.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRunStream, reshuffle, freshSource, freshSeed, puzzleKey, tutorialPuzzle } from '../js/games/patternrule/stream.js';

@@ -1,4 +1,4 @@
-// Timed run puzzle stream (pure, no DOM).
+// Timed test puzzle stream (pure, no DOM).
 //
 // A run serves the shipped set in an order shuffled by the run seed, then fresh puzzles of the
 // same set generated in the browser from seeds derived from the run seed. Generation is pure and

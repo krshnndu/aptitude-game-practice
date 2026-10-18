@@ -23,7 +23,7 @@ export const STRATEGY = [
   'Box rule: slot i takes the entry at position digit i of the row going in. On the numbered start row, the first box simply copies its digits.',
   'Apply each box to the row in front of it (the intermediate result), never to the start row, and work left to right.',
   'Eliminate by slot 1 first: trace slot 1 backwards through the boxes, rule out options that disagree, then check slot 2 only if two or more remain.',
-  'Timed run: a wrong answer costs points, a skip costs nothing. Guess only when you have ruled out all but two options.',
+  'Timed test: a wrong answer costs points, a skip costs nothing. Guess only when you have ruled out all but two options.',
 ];
 
 export const KIND_STRATEGY = {

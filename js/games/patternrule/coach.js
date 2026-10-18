@@ -1,4 +1,4 @@
-// Pattern Rule coach (pure, no DOM). Turns one recorded attempt, or a whole timed run, into
+// Pattern Rule coach (pure, no DOM). Turns one recorded attempt, or a whole timed test, into
 // findings with plain-English suggestions. Everything is computed from the attempt's own log:
 //   picks and changes of mind (replayed toggles), false picks and the rule dimension each one
 //   breaks (the dimension you overlooked), misses and the surface feature that probably put you

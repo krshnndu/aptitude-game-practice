@@ -107,7 +107,7 @@ export function unknownGame(main, what) {
 }
 
 export function deltaText(delta, n) {
-  if (delta === null || delta === undefined) return `no trend yet (n=${n}, needs 5)`;
+  if (delta === null || delta === undefined) return `not enough plays yet (${n} of 5)`;
   if (delta === 0) return 'no change';
   return `${signed(delta)} points`;
 }

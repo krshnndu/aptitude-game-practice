@@ -5,7 +5,7 @@
 //   side question accuracy, time-outs and fast guesses, the trade-off between the two tasks,
 //   time per recalled item and the longest hesitation, wasted steps (repeat taps, undo, hints),
 //   and the cost of a skip or a time-out.
-// coachRun() adds run-level coaching for a timed run: span reached on the staircase, the task
+// coachRun() adds run-level coaching for a timed test: span reached on the staircase, the task
 // trade-off, the error curve by serial position, order against location errors, time per trial,
 // side question speed, skip policy and the top 3 habits to fix.
 
@@ -56,11 +56,11 @@ export const HABITS = {
   },
   'wasted-steps': {
     label: 'Wasted taps',
-    tip: 'Say the next cell to yourself before you tap. Repeat taps and undo cost time in a timed run.',
+    tip: 'Say the next cell to yourself before you tap. Repeat taps and undo cost time in a timed test.',
   },
   hint: {
     label: 'Relying on hints',
-    tip: 'Hinted positions score 0, and the timed run has none. Try the same trial again without them.',
+    tip: 'Hinted positions score 0, and the timed test has none. Try the same trial again without them.',
   },
   'skip-cost': {
     label: 'Skipping instead of guessing',

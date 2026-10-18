@@ -252,7 +252,7 @@ export function freshSeed(runSeed, k) {
   return (h ^ (h >>> 16)) >>> 0;
 }
 
-// A fresh trial of any length for a timed run. The id encodes set, seed and length, so the same
+// A fresh trial of any length for a timed test. The id encodes set, seed and length, so the same
 // trial can be rebuilt later from the id alone (see trialFromId).
 export function generateFresh(cfg, length, seed) {
   return generateTrial(createRng(seed), cfg, length, `gm${cfg.set}-g${seed.toString(36)}-${length}`);

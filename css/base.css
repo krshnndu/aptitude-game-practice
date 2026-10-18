@@ -628,3 +628,79 @@ div.piece { cursor: default; }
 .maker-links { padding-left: 1.2rem; }
 .maker-links li { margin: .4rem 0; }
 .maker-foot { margin-top: .5rem; }
+
+/* ------------------------------------------------ onboarding and plain-language UX */
+
+/* Visible active page: underline bar plus weight, not just a faint background. */
+.site-header nav a { min-height: 44px; display: inline-flex; align-items: center; }
+.site-header nav a[aria-current] { color: var(--accent); box-shadow: inset 0 -3px 0 var(--accent); border-radius: 6px 6px 0 0; }
+.theme-toggle { min-height: 44px; padding: 4px 12px; }
+
+/* 44px touch targets for every small control. */
+.chip { min-width: 44px; height: 44px; }
+.btn-small { min-height: 44px; }
+.tier-chip, .tier-chip-small, .tag-chip { min-height: 44px; }
+.toggle { min-height: 44px; }
+.toggle input { width: 22px; height: 22px; accent-color: var(--accent); }
+summary { min-height: 44px; display: list-item; padding: 10px 0; cursor: pointer; }
+select, input[type="text"], input[type="search"], input:not([type]) {
+  font: inherit; min-height: 44px; padding: 6px 10px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--card); color: var(--fg);
+}
+.btn:focus-visible, .mode-card:focus-visible, .chip:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.btn-outline { background: var(--card); color: var(--accent); border: 2px solid var(--accent); }
+.btn-outline:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 10%, var(--card)); filter: none; }
+
+/* Game start: the two mode cards. */
+.game-start .page-head { margin-bottom: 8px; }
+.mode-choose .section-title { margin-top: 8px; }
+.mode-cards { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin: 8px 0 12px; }
+.mode-card {
+  position: relative; display: flex; flex-direction: column; gap: 6px;
+  padding: 20px; min-height: 180px; border-radius: var(--radius);
+  background: var(--card); color: var(--fg); text-decoration: none;
+  border: 2px solid var(--line); box-shadow: var(--shadow);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.mode-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.mode-practice { border-color: var(--accent); }
+.mode-title { font-size: 1.5rem; font-weight: 800; line-height: 1.2; }
+.mode-sub { font-weight: 700; color: var(--accent); }
+.mode-body { color: var(--muted); }
+.mode-cta {
+  margin-top: auto; align-self: flex-start; display: inline-flex; align-items: center; min-height: 44px;
+  padding: 8px 16px; border-radius: 8px; font-weight: 700;
+  background: var(--accent); color: var(--accent-fg);
+}
+.mode-timed .mode-cta { background: var(--card); color: var(--accent); border: 2px solid var(--accent); }
+.badge-start { position: absolute; top: 12px; right: 12px; color: var(--accent-fg); background: var(--ok); border-color: var(--ok); }
+.mode-more { display: flex; flex-wrap: wrap; gap: 8px; }
+.how-to-play { margin: 16px 0; padding: 0 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.how-to-play > summary { font-weight: 700; font-size: 1.1rem; }
+.how-body { padding-bottom: 12px; }
+.how-body h3 { margin-top: 12px; }
+.set-buttons { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+.chips-label { width: 100%; margin: 4px 0 0; }
+.set-card.is-locked { opacity: 1; background: transparent; border-style: dashed; }
+.locked-hint { margin: 8px 0 0; }
+
+/* Home: welcome, status chips, next step. */
+.welcome { margin: 16px 0; }
+.welcome .section-title { margin-top: 0; }
+.welcome-steps { margin: 0 0 12px; padding-left: 22px; }
+.welcome-steps li { margin: 4px 0; }
+.next-step { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; margin: 16px 0; padding: 12px 16px; border-radius: var(--radius); background: color-mix(in srgb, var(--accent) 10%, var(--card)); border: 1px solid var(--line); }
+.next-step p { margin: 0; flex: 1 1 280px; }
+.badge-new { color: var(--accent); }
+.badge-progress { color: var(--mid); }
+.badge-mastered { color: var(--ok); }
+.due-link { display: inline-flex; align-items: center; min-height: 44px; }
+
+/* One-time coach marks. */
+.coach-mark { margin: 0 0 16px; border-left-color: var(--ok); }
+.coach-title { font-size: 1.1rem; margin: 0 0 4px; }
+.coach-mark ul { margin: 0 0 8px; padding-left: 20px; }
+.coach-mark p { margin: 4px 0 0; }
+.brand, .nav-chip a, .game-tabs a { min-height: 44px; }
+.game-tabs a { display: inline-flex; align-items: center; }
+.filter select { min-height: 44px; }

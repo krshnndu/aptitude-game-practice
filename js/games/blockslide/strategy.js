@@ -16,7 +16,7 @@ export const STRATEGY_SHEET = {
     { tag: 'oscillation', text: 'Sliding a piece and straight back. Decide where each piece must end up before touching it.' },
     { tag: 'off-line-pieces', text: 'Shuffling blocks the solution never needs. Only pieces in or next to the lane matter.' },
     { tag: 'wasted', text: 'Playing by trial and error. Each extra move costs efficiency even when you finish.' },
-    { tag: 'skip-late', text: 'Holding on past twice the pace guide in a timed run. Skip and bank time instead.' },
+    { tag: 'skip-late', text: 'Holding on past twice the pace guide in a timed test. Skip and bank time instead.' },
   ],
   example: {
     puzzleId: 'bs1-01',

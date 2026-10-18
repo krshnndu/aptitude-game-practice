@@ -1,4 +1,4 @@
-// Operator Switch: shipped sets, generator and the timed run stream.
+// Operator Switch: shipped sets, generator and the timed test stream.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SET_CONFIGS, PUZZLES_PER_SET, configFor, generateSet, generateFresh, makeForward, difficulty } from '../js/games/operatorswitch/gen.js';

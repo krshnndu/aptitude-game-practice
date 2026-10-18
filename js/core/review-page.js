@@ -88,7 +88,7 @@ function itemCard(it, ctx, now, redraw) {
     el('div', { class: 'card-head' },
       el('h3', {}, el('a', { href: `#/review/${it.game}/${encodeURIComponent(it.attemptId)}` }, `Set ${it.set}, ${it.puzzleId}`)),
       el('span', { class: `badge ${it.dueAt <= endOfDay(now) ? 'badge-warn' : 'badge-soon'}`, text: dueText(it, now) })),
-    el('p', { class: 'muted small' }, `${fmtShort(it.createdAt)}, ${it.mode === 'exam' ? 'timed run' : 'practice'}. ${resultText(it)}. Interval ${it.interval} ${it.interval === 1 ? 'day' : 'days'}, ${it.history.length} reviews${isMastered(it) ? ', mastered' : ''}.`),
+    el('p', { class: 'muted small' }, `${fmtShort(it.createdAt)}, ${it.mode === 'exam' ? 'timed test' : 'practice'}. ${resultText(it)}. Interval ${it.interval} ${it.interval === 1 ? 'day' : 'days'}, ${it.history.length} reviews${isMastered(it) ? ', mastered' : ''}.`),
     it.tags.length ? el('p', { class: 'small' }, it.tags.map((t) => el('span', { class: 'chip tag-chip is-on' }, ad.tagLabel(t)))) : null,
     noteEditor(it, ctx.store),
     el('div', { class: 'set-actions' },
@@ -125,7 +125,8 @@ function mountToday(main) {
         el('span', { class: 'badge badge-soon', text: gameName(it.game) }), ' ',
         el('a', { href: `#/review/${it.game}/${encodeURIComponent(it.attemptId)}?from=today` }, `Set ${it.set}, ${it.puzzleId}`),
         el('span', { class: 'muted small' }, ` ${resultText(it)}; added ${fmtShort(it.createdAt)}${it.note ? `; note: ${it.note}` : ''}`))))
-      : null,
+      : el('p', {}, el('a', { class: 'btn btn-primary', href: '#/' }, 'Practise a game'), ' Puzzles you miss or solve the long way land here for review.'),
+    el('h2', { class: 'section-title', text: 'Review library by game' }),
     el('div', { class: 'toolbar' }, ...Object.keys(ADAPTERS).map((g) => el('a', { class: 'btn btn-small', href: `#/review/${g}` }, `${gameName(g)}${ctx.due[g] ? ` (${ctx.due[g]})` : ''}`))),
   );
   return () => {};

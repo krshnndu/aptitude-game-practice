@@ -1,4 +1,4 @@
-// Timed run puzzle stream (pure, no DOM).
+// Timed test puzzle stream (pure, no DOM).
 //
 // A run draws the shipped set shuffled by the run seed. When that pool is exhausted it takes
 // fresh puzzles generated from seeds derived from the run seed (built in a worker by the UI).

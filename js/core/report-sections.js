@@ -57,7 +57,7 @@ export function tagsSection(r, tagLabel) {
   const w = r.weeks;
   const body = [];
   if (!r.tagCoverage) {
-    body.push(el('p', { class: 'muted', text: 'No coach tags recorded yet. Tags are saved when the coach reviews a puzzle (practice, or a timed run summary), and filled in for older attempts when their puzzle can be rebuilt.' }));
+    body.push(el('p', { class: 'muted', text: 'No coach tags recorded yet. Tags are saved when the coach reviews a puzzle (practice, or a timed test summary), and filled in for older attempts when their puzzle can be rebuilt.' }));
   } else {
     body.push(stackedWeeks({
       rows: w.rows, top: w.tags.slice(0, 3), labelOf: tagLabel,

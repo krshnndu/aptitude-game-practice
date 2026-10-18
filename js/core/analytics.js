@@ -119,7 +119,7 @@ export function dayStreak(timestamps, now = Date.now()) {
   return { current: cur, longest, days: days.size };
 }
 
-// One point per finished timed run, oldest first.
+// One point per finished timed test, oldest first.
 export function runSeries(runs) {
   return runs
     .slice()
@@ -220,7 +220,7 @@ export function summaryLines({ runs, attempts, now = Date.now(), filterSet = nul
     const change = ends.pct === null ? `${signed(ends.delta)} points` : signedPct(ends.pct);
     lines.push(`Last ${ends.n} runs ${change} vs first ${ends.n} (average score ${ends.last.toFixed(2)} vs ${ends.first.toFixed(2)}).`);
   } else if (series.length === 1) {
-    lines.push(`One timed run so far: score ${series[0].score.toFixed(2)}. Play another to see a trend.`);
+    lines.push(`One timed test so far: score ${series[0].score.toFixed(2)}. Play another to see a trend.`);
   }
   if (series.length >= 3) {
     const t = linearTrend(scores);
@@ -240,7 +240,7 @@ export function summaryLines({ runs, attempts, now = Date.now(), filterSet = nul
   const st = dayStreak([...attempts.map((a) => a.startedAt), ...runs.map((r) => r.endedAt)], now);
   if (attempts.length || runs.length) {
     const count = (k, one) => `${k} ${one}${k === 1 ? '' : 's'}`;
-    lines.push(`${st.current ? `${st.current}-day streak` : 'No current streak'}, longest ${count(st.longest, 'day')}; ${count(attempts.length, 'puzzle attempt')} and ${count(runs.length, 'timed run')} in total.`);
+    lines.push(`${st.current ? `${st.current}-day streak` : 'No current streak'}, longest ${count(st.longest, 'day')}; ${count(attempts.length, 'puzzle attempt')} and ${count(runs.length, 'timed test')} in total.`);
   }
   return lines;
 }

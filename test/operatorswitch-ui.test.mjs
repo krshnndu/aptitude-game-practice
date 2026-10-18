@@ -1,6 +1,6 @@
 // Operator Switch UI smoke test without a browser: a minimal DOM shim (elements, attributes,
 // classes, events, a small selector engine) is enough to mount play.js and drive the practice and
-// timed run flows. Layout and CSS are not checked here.
+// timed test flows. Layout and CSS are not checked here.
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -259,7 +259,7 @@ test('menu: five sets, stylesheet injected once, unlock all off by default and v
   assert.equal($$('.set-card').length, 5);
   assert.equal($$('.set-card.is-locked').length, 4);
   assert.equal($('#os-unlock-all').checked, false);
-  assert.match($('.os-unlock').textContent, /Unlock all sets/);
+  assert.match($('label[for="os-unlock-all"]').textContent, /Unlock all sets/);
   dispose();
   await mount([]);
   assert.equal($$('link[data-game-css="operatorswitch"]').length, 1, 'stylesheet link added only once');
@@ -311,7 +311,7 @@ test('practice: skip reveals the answer; locked sets show a notice until unlock 
   m.dispose();
 });
 
-test('timed run: tutorial, exam screen without hints, answers by key, skip, time up, summary and review', async () => {
+test('timed test: tutorial, exam screen without hints, answers by key, skip, time up, summary and review', async () => {
   const { dispose } = await mount(['run', '2']);
   assert.ok($('.run-intro'), 'tutorial screen first');
   $('.run-intro [data-option="1"]').click();

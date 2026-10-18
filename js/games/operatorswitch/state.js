@@ -262,7 +262,7 @@ export function diagnose(puzzle, value) {
 
 // ---------------------------------------------------------------- scoring
 
-// Timed run points: +1 correct, 0 skip or time-out, and a wrong answer costs 1 / (options - 1),
+// Timed test points: +1 correct, 0 skip or time-out, and a wrong answer costs 1 / (options - 1),
 // so blind guessing averages zero.
 export function wrongPenalty(options) {
   return options > 1 ? 1 / (options - 1) : 1;

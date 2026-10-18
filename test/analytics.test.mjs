@@ -169,13 +169,13 @@ test('summary: "Last 5 runs +22% vs first 5" and friends', () => {
   assert.equal(lines[0], 'Last 5 runs +22% vs first 5 (average score 6.10 vs 5.00).');
   assert.match(lines[1], /^Trend: rising, \+0\.\d\d points per run\.$/);
   assert.ok(lines.some((l) => /^4 jumps flagged: run 6 \(.+, 6\.00\), run 7 .*run 10 \(.+, 6\.50\)\.$/.test(l)), lines.join(' | '));
-  assert.ok(lines.includes('10-day streak, longest 10 days; 0 puzzle attempts and 10 timed runs in total.'), 'daily runs ending yesterday');
-  assert.match(summaryLines({ runs: runs.slice(0, 1), attempts: [{ startedAt: now }], now }).at(-1), /1 puzzle attempt and 1 timed run in total\.$/);
+  assert.ok(lines.includes('10-day streak, longest 10 days; 0 puzzle attempts and 10 timed tests in total.'), 'daily runs ending yesterday');
+  assert.match(summaryLines({ runs: runs.slice(0, 1), attempts: [{ startedAt: now }], now }).at(-1), /1 puzzle attempt and 1 timed test in total\.$/);
   assert.ok(!lines.some((l) => /several sets/.test(l)));
   const mixed = summaryLines({ runs: [...runs, { ...runs[0], id: 'x', set: 3 }], attempts: [], now });
   assert.ok(mixed.some((l) => /several sets/.test(l)));
   assert.ok(!summaryLines({ runs: [...runs, { ...runs[0], id: 'x', set: 3 }], attempts: [], now, filterSet: 2 }).some((l) => /several sets/.test(l)));
-  assert.match(summaryLines({ runs: runs.slice(0, 1), attempts: [], now })[0], /^One timed run so far/);
+  assert.match(summaryLines({ runs: runs.slice(0, 1), attempts: [], now })[0], /^One timed test so far/);
   assert.deepEqual(summaryLines({ runs: [], attempts: [], now }), []);
 });
 

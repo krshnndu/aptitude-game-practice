@@ -1,4 +1,4 @@
-// Timed run trial stream for Grid Memory: an adaptive staircase on sequence length, fed first from
+// Timed test trial stream for Grid Memory: an adaptive staircase on sequence length, fed first from
 // the set's shipped puzzles (shuffled by the run seed) and then from freshly generated trials.
 // Generation takes well under a millisecond, so runs never stall and never run out.
 

@@ -1,4 +1,4 @@
-// Block Slide UI: set menu, practice mode, timed run (exam mode) and the optimal solution replay.
+// Block Slide UI: set menu, practice mode, timed test and the optimal solution replay.
 // All game rules live in state.js; this file only renders and wires input. Every attempt is logged
 // through the recorder and reviewed by the coach.
 
@@ -16,6 +16,7 @@ import { createRunStream, generateFresh, freshSeed, TUTORIAL_PUZZLE } from './st
 import { coachPuzzle, coachRun } from './coach.js';
 import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry, stampDvs } from '../../core/learn-hooks.js';
 import { dvsPanel, dvsRunSection } from '../../core/dvs-ui.js';
+import { gameStart, setActions, setListHead, lockedHint, lockedPage, progressLine, unlockToggle, trackModes } from '../../core/start-ui.js';
 import { endButton, guardRun, saveEndedRun, isLeave, isPartial, partialBanner, runLearning, studyLink, resume } from '../../core/endrun-ui.js';
 
 const GAME_ID = 'blockslide';
@@ -512,30 +513,22 @@ function coachHost(attempt, puzzle, paceSec) {
 
 function renderMenu(ctx) {
   const { root } = ctx;
-  const unlockToggle = el('input', {
-    type: 'checkbox',
-    id: 'unlock-all',
-    onchange: (e) => {
-      store.setUnlockAll(e.target.checked);
-      ctx.rerender();
-    },
-  });
-  unlockToggle.checked = store.unlockAll();
-
+  trackModes(root, GAME_ID);
   root.append(
-    el('div', { class: 'page-head' },
-      el('h1', { text: 'Block Slide' }),
-      el('p', { class: 'lede' },
-        'Get the ball to the EXIT on the edge of the board in as few moves as possible. ',
-        'Each move slides one piece exactly one cell up, down, left or right into empty space. Blocks never rotate. Hatched dark cells are fixed walls.'),
-    ),
-    el('div', { class: 'mode-explainer' },
-      el('div', {}, el('h2', { text: 'Practice' }), el('p', { text: 'One puzzle, no clock, with undo, reset and hints. After you solve or skip, the coach reviews your moves and the optimal line replays step by step.' })),
-      el('div', {}, el('h2', { text: 'Timed run (exam mode)' }), el('p', { text: '6:00 on the clock and puzzles keep coming until time is up. No undo, no hints, and a skipped puzzle never comes back. Score is the sum of your efficiencies.' })),
-    ),
+    gameStart({
+      game: GAME_ID,
+      idOf: puzzleId,
+      lede: 'Slide blocks out of the way and get the ball to the EXIT in as few moves as possible.',
+      rules: [el('p', {}, 'Get the ball to the EXIT on the edge of the board in as few moves as possible. ',
+        'Each move slides one piece exactly one cell up, down, left or right into empty space. Blocks never rotate. Hatched dark cells are fixed walls.')],
+      practiceText: 'One puzzle, no clock, with undo, reset and hints. After you solve or skip, the coach reviews your moves and the best solution replays step by step.',
+      timedText: '6 minutes on the clock and puzzles keep coming until time is up. No undo, no hints, and a skipped puzzle never comes back. Each puzzle scores fewest possible moves divided by your moves (1 at most); your score is the sum.',
+      setName: (s) => `Set ${s}: ${SET_CONFIGS[s - 1].name}`,
+    }),
+    setListHead(),
     el('div', { class: 'toolbar' },
-      el('label', { class: 'toggle', for: 'unlock-all' }, unlockToggle, ' Unlock all sets'),
-      el('a', { class: 'btn', href: '#/analytics' }, 'Progress and analytics'),
+      unlockToggle('unlock-all', ctx.rerender),
+      el('a', { class: 'btn', href: '#/analytics' }, 'My progress'),
       el('button', {
         type: 'button',
         class: 'btn btn-quiet',
@@ -573,27 +566,15 @@ function setCard(cfg) {
     ),
     el('p', { class: 'set-meta' },
       `${cfg.n}x${cfg.n} grid, ${cfg.blockers[0]}-${cfg.blockers[1]} blocks${walls}. Fewest moves ${cfg.band[0]} to ${cfg.band[1]}. Pace: about ${cfg.paceSec} s per puzzle.`),
-    el('p', { class: 'set-progress' },
-      `Best timed run score: ${round2(entry.bestScore)} (${pct(entry.bestAvg)} average efficiency)`,
-      ` | Practice average: ${pct(practiceAvg)}`),
+    progressLine(entry, practiceAvg),
     open
-      ? el('div', { class: 'set-actions' },
-        el('div', { class: 'chips', role: 'group', 'aria-label': `Practice puzzles in set ${cfg.set}` }, chips),
-        el('a', { class: 'btn btn-primary', href: `#/blockslide/run/${cfg.set}` }, 'Start timed run (6:00)'),
-        studyLink(GAME_ID, cfg.set),
-      )
-      : el('p', { class: 'muted', text: `Reach ${pct(UNLOCK_THRESHOLD)} average efficiency in set ${cfg.set - 1} (timed run, or practice bests across all its puzzles) to unlock, or tick Unlock all sets.` }),
+      ? setActions({ game: GAME_ID, set: cfg.set, idOf: puzzleId, chips })
+      : lockedHint(cfg.set),
   );
 }
 
 function lockedNotice(root, setNo) {
-  root.append(
-    el('section', { class: 'prose' },
-      el('h1', { text: `Set ${setNo} is locked` }),
-      el('p', { text: `Reach ${pct(UNLOCK_THRESHOLD)} average efficiency in set ${setNo - 1}, or turn on Unlock all sets.` }),
-      el('p', {}, el('a', { class: 'btn', href: '#/blockslide' }, 'Back to sets')),
-    ),
-  );
+  lockedPage(root, GAME_ID, setNo, 'puzzle');
 }
 
 // ---------------------------------------------------------------- practice
@@ -702,7 +683,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
   });
 }
 
-// ---------------------------------------------------------------- timed run (exam mode)
+// ---------------------------------------------------------------- timed test
 
 // Fresh puzzles for the run, built in a module worker. Without workers, sets 1 to 3 (fast to
 // generate) are built on demand; sets 4 and 5 fall back to the stream's instant variants.
@@ -762,7 +743,7 @@ async function renderRun(ctx, setNo) {
 
   const head = el('div', { class: 'page-head play-head' },
     el('p', { class: 'crumbs' }, el('a', { href: '#/blockslide' }, 'Block Slide'), ` / Set ${setNo}: ${cfg.name}`),
-    el('h1', {}, 'Timed run'),
+    el('h1', {}, 'Timed test'),
   );
   const body = el('div', {});
   root.append(head, body);

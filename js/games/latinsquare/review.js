@@ -1,4 +1,4 @@
-// Latin Square review adapter (pure). Variants of a timed run are rebuilt from the run seed; when
+// Latin Square review adapter (pure). Variants of a timed test are rebuilt from the run seed; when
 // the run was never saved (abandoned), a compact encoding of the puzzle is kept instead.
 
 import { SET_CONFIGS } from './gen.js';

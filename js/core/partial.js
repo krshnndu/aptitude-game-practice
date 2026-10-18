@@ -1,6 +1,6 @@
 // Ended-early runs, plain-language takeaways and the "resume or review" slot (pure, no DOM).
 //
-// A timed run normally ends when its clock runs out (exit 'time', status 'complete'). It can also end
+// A timed test normally ends when its clock runs out (exit 'time', status 'complete'). It can also end
 // early: the End and review button ('early'), a route change ('nav'), closing or leaving the page
 // ('unload'), or a checkpoint taken when the tab is hidden ('hidden'). Those runs are saved with
 // status 'partial': they count toward progress, reports, streaks, the review library and did vs
@@ -161,7 +161,7 @@ export function createResumeStore(storage) {
   };
 }
 
-// Where the card's buttons go. Timed runs are never resumed (the clock would not be fair), so they
+// Where the card's buttons go. Timed tests are never resumed (the clock would not be fair), so they
 // offer review only; practice puzzles reopen where they were left.
 export function resumeActions(entry) {
   if (!entry) return null;
@@ -179,6 +179,6 @@ export function resumeActions(entry) {
   return {
     resumeHref: null,
     reviewHref: `#/review/${entry.game}/run/${entry.runId}`,
-    text: `Timed run on set ${entry.set} ended early${bits.length ? ` (${bits.join(', ')})` : ''}. Timed runs restart fresh, so this one is ready to review.`,
+    text: `Timed test on set ${entry.set} ended early${bits.length ? ` (${bits.join(', ')})` : ''}. Timed tests restart fresh, so this one is ready to review.`,
   };
 }

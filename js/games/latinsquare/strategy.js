@@ -9,7 +9,7 @@ export const STRATEGY_SHEET = {
     'Two or more left: find a blank in the same row or column you can fill first; its symbol rules one more out.',
     'Ask the reverse question too: where in this row or column can a missing symbol still go? One open cell means it goes there (a hidden single).',
     'Check both lines before every pick. Most wrong answers are a symbol already sitting in the row or the column.',
-    'In a timed run a wrong pick costs points and a skip costs nothing: skip a chain you cannot finish in time.',
+    'In a timed test a wrong pick costs points and a skip costs nothing: skip a chain you cannot finish in time.',
   ],
   traps: [
     { tag: 'missed-row', text: 'Picking a symbol that is already in the target\'s row.' },

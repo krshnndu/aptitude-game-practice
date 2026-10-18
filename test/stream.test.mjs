@@ -1,4 +1,4 @@
-// Timed run stream: shuffled pool, fresh puzzles, instant symmetric variants, tutorial puzzle.
+// Timed test stream: shuffled pool, fresh puzzles, instant symmetric variants, tutorial puzzle.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRunStream, transformPuzzle, TRANSFORMS, VARIANT_TRANSFORMS, generateFresh, freshSeed, TUTORIAL_PUZZLE } from '../js/games/blockslide/stream.js';

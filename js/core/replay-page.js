@@ -131,7 +131,7 @@ export async function mountReplay(main, game, attemptId, query) {
 
     const meta = el('section', { class: 'replay-meta', 'aria-label': 'Original puzzle' },
       el('h1', { text: `${gameName(game)}: set ${attempt.set}, ${attempt.puzzleId}` }),
-      el('p', {}, `${fmtDate(attempt.startedAt)}, ${attempt.mode === 'exam' ? 'timed run' : 'practice'}. Original result: ${attempt.outcome === 'solved' ? `solved at ${pctText(attempt.metrics?.efficiency)} efficiency` : attempt.outcome === 'timeout' ? 'time ran out' : 'skipped or wrong'}.`),
+      el('p', {}, `${fmtDate(attempt.startedAt)}, ${attempt.mode === 'exam' ? 'timed test' : 'practice'}. Original result: ${attempt.outcome === 'solved' ? `solved at ${pctText(attempt.metrics?.efficiency)} efficiency` : attempt.outcome === 'timeout' ? 'time ran out' : 'skipped or wrong'}.`),
       el('p', { class: 'small' }, el('strong', { text: 'Puzzle features: ' }), safe(() => ad.features(puzzle).join(', '), 'unknown')),
       built.stale ? el('p', { class: 'callout callout-warn', text: 'The puzzle generator changed since this was recorded: the rebuilt puzzle differs from the one you played. Treat it as a fresh puzzle of the same kind.' }) : null);
 

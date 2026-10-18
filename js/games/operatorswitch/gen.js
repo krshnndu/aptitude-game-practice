@@ -1,6 +1,6 @@
 // Seeded puzzle generator for Operator Switch. Pure and fast (well under a millisecond per
 // puzzle), so the same code builds the shipped sets offline and fresh puzzles in the page during a
-// timed run. Deterministic per seed (mulberry32).
+// timed test. Deterministic per seed (mulberry32).
 //
 // A puzzle is kept only when:
 //   - every box moves at least n - 1 items (at most one fixed point) and is not the identity,
@@ -259,7 +259,7 @@ export function generateSet(cfg, { count = PUZZLES_PER_SET, seed = cfg.seed, max
   };
 }
 
-// One fresh puzzle for a timed run, from a seed. Twin puzzles appear in set 5 at the same rate as
+// One fresh puzzle for a timed test, from a seed. Twin puzzles appear in set 5 at the same rate as
 // in the shipped set.
 export function generateFresh(setNo, seed) {
   const cfg = configFor(setNo);

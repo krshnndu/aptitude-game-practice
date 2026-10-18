@@ -203,7 +203,7 @@ export function freshSeed(runSeed, k) {
   return ((runSeed >>> 0) + Math.imul(k + 1, 0x9e3779b1)) >>> 0;
 }
 
-// One fresh puzzle for a timed run: pure, synchronous, a few milliseconds.
+// One fresh puzzle for a timed test: pure, synchronous, a few milliseconds.
 export function generateFresh(setNo, seed, { seen = null } = {}) {
   const cfg = configFor(setNo);
   const rng = createRng(seed);

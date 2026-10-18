@@ -53,7 +53,7 @@ export function mountAnalytics(main) {
       root.append(
         el('div', { class: `callout${state.sample ? ' callout-sample' : ''}` },
           empty && !state.sample
-            ? el('p', {}, el('strong', { text: 'No play recorded yet. ' }), 'Finish a practice puzzle or a timed run and your charts appear here. ', el('a', { href: '#/blockslide' }, 'Play Block Slide'))
+            ? el('p', {}, el('strong', { text: 'No play recorded yet. ' }), 'Finish a practice puzzle or a timed test and your charts appear here. ', el('a', { href: '#/blockslide' }, 'Play Block Slide'))
             : null,
           state.sample ? el('p', {}, el('span', { class: 'badge badge-sample', text: 'SAMPLE DATA' }), ' Everything below is generated sample data, not your results.') : null,
           el('label', { class: 'toggle', for: 'sample-toggle' }, toggle, ' Show sample data'),
@@ -84,7 +84,7 @@ export function mountAnalytics(main) {
     root.append(
       el('section', { class: 'summary callout', 'aria-label': 'Summary' },
         el('h2', { text: state.sample ? 'Summary (sample data)' : 'Summary' }),
-        lines.length ? el('ul', {}, lines.map((t) => el('li', { text: t }))) : el('p', { text: 'Play a timed run to see your trend.' }),
+        lines.length ? el('ul', {}, lines.map((t) => el('li', { text: t }))) : el('p', { text: 'Play a timed test to see your trend.' }),
       ),
     );
 
@@ -93,7 +93,7 @@ export function mountAnalytics(main) {
     const best = series.reduce((b, r) => (!b || r.score > b.score ? r : b), null);
     root.append(
       el('div', { class: 'score-tiles' },
-        tile('Timed runs', String(series.length)),
+        tile('Timed tests', String(series.length)),
         tile('Puzzle attempts', String(attempts.length)),
         tile('Current streak', `${streak.current} ${streak.current === 1 ? 'day' : 'days'}`),
         tile('Best run score', best ? best.score.toFixed(2) : 'none'),
@@ -110,7 +110,7 @@ export function mountAnalytics(main) {
       const xDetail = (i) => `(${fmtDate(series[i].at)}, set ${series[i].set})`;
       charts.append(
         lineChart({
-          title: 'Score per timed run',
+          title: 'Score per timed test',
           subtitle: `Dots are runs; ${jumps.length ? `"jump" marks a run more than 1 standard deviation above your previous best or recent average` : 'a "jump" label appears when a run beats your recent level by more than 1 standard deviation'}.`,
           xLabels: labels,
           xDetail,
@@ -155,7 +155,7 @@ export function mountAnalytics(main) {
         }),
       );
     } else {
-      charts.append(el('p', { class: 'muted', text: 'No timed runs yet for this filter. Run charts appear after your first 6:00 run.' }));
+      charts.append(el('p', { class: 'muted', text: 'No timed tests yet for this filter. Run charts appear after your first 6:00 run.' }));
     }
     const effSets = efficiencyBySet(data.attempts, filterSet === null ? SETS : [filterSet]);
     charts.append(
@@ -184,7 +184,7 @@ export function mountAnalytics(main) {
     root.append(
       el('h2', { class: 'section-title', text: 'Per-set progress' }),
       table('Progress per set',
-        ['Set', 'Attempts', 'Practice puzzles played', 'Timed runs', 'Last run score', 'First 3 vs last 3 runs', 'Best saved run'],
+        ['Set', 'Attempts', 'Practice puzzles played', 'Timed tests', 'Last run score', 'First 3 vs last 3 runs', 'Best saved run'],
         prog.map((p) => [
           p.set, p.attempts, p.practicePuzzles, p.runs, p.lastScore?.toFixed(2) ?? '',
           p.change ? `${p.change.first.toFixed(2)} to ${p.change.last.toFixed(2)}` : '',
@@ -293,7 +293,7 @@ function learningSection() {
       tierChip(ctx.skill),
       el('a', { class: `btn${totalDue ? ' btn-primary' : ''}`, href: '#/review/today' }, `Today's review queue (${totalDue} due)`),
       el('a', { class: 'btn', href: '#/achievements' }, 'Achievements')),
-    nodeTable('Learning per game', ['Game', 'Skill score', 'n', '14-day change', 'Report', 'Review'],
+    nodeTable('Learning per game', ['Game', 'Skill score', 'Puzzles played', 'Change in 14 days', 'Report', 'Review'],
       ctx.skill.cards.map((c) => [
         `${gameName(c.game)}${c.stale ? ' (stale)' : ''}`,
         c.n ? `${Math.round(c.score)} ${c.tier}` : 'not played',

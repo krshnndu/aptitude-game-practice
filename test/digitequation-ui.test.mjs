@@ -1,6 +1,6 @@
 // Digit Equation UI smoke test: mounts play.js on a tiny in-memory DOM (no dependencies) and drives
 // the menu, a practice puzzle (wrong check, two-level hint, keyboard solve, coach and explanation),
-// the tutorial and a whole timed run (skips, then the clock runs out), checking what gets saved.
+// the tutorial and a whole timed test (skips, then the clock runs out), checking what gets saved.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -309,7 +309,7 @@ test('practice: wrong check, two-level hint, keyboard solve, coach, explanation,
   dispose();
 });
 
-test('timed run: tutorial, exam screen without hints, skips, time up, summary and saved run', async () => {
+test('timed test: tutorial, exam screen without hints, skips, time up, summary and saved run', async () => {
   const realNow = Date.now;
   let offset = 0;
   Date.now = () => realNow() + offset;

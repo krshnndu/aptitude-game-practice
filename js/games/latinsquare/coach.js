@@ -57,7 +57,7 @@ export const HABITS = {
   },
   hints: {
     label: 'Leaning on hints',
-    tip: 'Try the same puzzle again without hints. The timed run has none.',
+    tip: 'Try the same puzzle again without hints. The timed test has none.',
   },
   timeout: {
     label: 'Running out of time mid-puzzle',
@@ -191,7 +191,7 @@ export function coachPuzzle(attempt, puzzle, { history = [], paceSec = 20, A = a
 
   if (hints) {
     findings.push(finding('hints', exam ? 'fix' : 'info', hints, `${plural(hints, 'hint')} used`,
-      'Hinted solves still count in practice, but the timed run has no hints.'));
+      'Hinted solves still count in practice, but the timed test has no hints.'));
   }
 
   // Skip and time-out.

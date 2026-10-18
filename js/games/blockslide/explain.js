@@ -50,7 +50,7 @@ export const STRATEGY = [
   'Plan backwards from the exit: what must move for the last ball steps to be free?',
   'Count your plan before moving: compare it with the fewest-moves target.',
   'Prefer moving a block out of the lane in one step over a longer detour for the ball.',
-  'Skip if you have no plan within about 10 seconds: in a timed run, time is the scarce resource.',
+  'Skip if you have no plan within about 10 seconds: in a timed test, time is the scarce resource.',
 ];
 
 function firstDependent(board, states, moves, i, cells) {
