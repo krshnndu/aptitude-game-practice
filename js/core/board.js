@@ -9,9 +9,9 @@ export const TITLES = [[90, 'Grandmaster'], [75, 'Strategist'], [50, 'Analyst'],
 export const titleFor = (pct) => TITLES.find(([m]) => pct >= m)[1];
 export const cid = () => { let c = ls.get(K_CID); if (!c) { c = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()); ls.set(K_CID, c); } return c; };
 export const nick = () => ls.get(K_NICK) || '';
-export const setNick = (n) => ls.set(K_NICK, n.trim().slice(0, 16));
+export const setNick = (n) => { const v = n.trim().slice(0, 16); ls.set(K_NICK, v); if (v) ev('feat', 'board', { name: 'set_nick' }); };
 export const compareOn = () => ls.get(K_CMP) === '1';
-export const setCompare = (on) => ls.set(K_CMP, on ? '1' : '0');
+export const setCompare = (on) => { ls.set(K_CMP, on ? '1' : '0'); ev('feat', 'board', { name: on ? 'cmp_on' : 'cmp_off' }); };
 
 let endpoint = null;
 export async function base() {
@@ -160,6 +160,7 @@ export function startTelemetry() {
       ev('env', curPage, { orient: o });
     } catch { /* ignore */ }
   });
+  addEventListener('resize', () => { if (activeRun) ev('feat', activeRun.game, { name: 'midrun_resize' }); });
   addEventListener('hashchange', () => abandon('nav'));
   addEventListener('pagehide', () => abandon('unload'));
   addEventListener('visibilitychange', () => {
@@ -190,7 +191,8 @@ export function startTelemetry() {
   } catch { /* ignore */ }
   addEventListener('load', () => setTimeout(() => {
     try { const n = performance.getEntriesByType('navigation')[0], fcp = performance.getEntriesByName('first-contentful-paint')[0];
-      ev('perf', 'home', { ttfb: Math.round(n ? n.responseStart : 0), fcp: Math.round(fcp ? fcp.startTime : 0) }); } catch { /* ignore */ }
+      const heap = (performance.memory && performance.memory.usedJSHeapSize) ? Math.round(performance.memory.usedJSHeapSize / 1048576) : undefined;
+      ev('perf', 'home', { ttfb: Math.round(n ? n.responseStart : 0), fcp: Math.round(fcp ? fcp.startTime : 0), ...(heap ? { heap_mb: heap } : {}) }); } catch { /* ignore */ }
   }, 1500));
 }
 
