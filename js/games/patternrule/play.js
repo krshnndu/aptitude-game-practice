@@ -13,6 +13,7 @@ import { explainPuzzle, resultSummary, pickMarks, MARK_TEXT, STRATEGY } from './
 import { SET_CONFIGS, PUZZLES_PER_SET } from './gen.js';
 import { createRunStream, freshSource, tutorialPuzzle } from './stream.js';
 import { coachPuzzle, coachRun } from './coach.js';
+import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry } from '../../core/learn-hooks.js';
 import { panelSvg, shapeIcon } from './render.js';
 import { describePanel, TYPES, TYPE_NAMES, FILLS, FILL_NAMES } from './rules.js';
 
@@ -338,6 +339,7 @@ function coachPanel(attempt, puzzle, paceSec) {
   let list;
   try {
     const res = coachPuzzle(attempt, puzzle, { history: recorder.attempts({ game: GAME_ID, set: attempt.set }), paceSec });
+    noteAttempt(GAME_ID, attempt, res.findings, puzzle);
     list = el('ul', { class: 'findings', role: 'list' }, res.findings.map(findingItem));
   } catch (err) {
     console.error(err);
@@ -435,26 +437,26 @@ function lockedNotice(root, setNo) {
 
 // ---------------------------------------------------------------- practice
 
-async function renderPractice(ctx, setNo, k) {
+// retry: a puzzle handed over by the review library (any set or source), played blind.
+async function renderPractice(ctx, setNo, k, retry = null) {
   const { root } = ctx;
   const cfg = SET_CONFIGS.find((c) => c.set === setNo);
-  if (!cfg || !(k >= 1 && k <= PUZZLES_PER_SET)) {
+  if (!cfg || (!retry && !(k >= 1 && k <= PUZZLES_PER_SET))) {
     root.append(el('p', { class: 'notice' }, 'Unknown puzzle. ', el('a', { href: BASE }, 'Back to sets')));
     return;
   }
-  if (!isUnlocked(setNo)) return lockedNotice(root, setNo);
-  const data = await loadSet(setNo);
-  const puzzle = data.puzzles[k - 1];
+  if (!retry && !isUnlocked(setNo)) return lockedNotice(root, setNo);
+  const puzzle = retry ? retry.puzzle : (await loadSet(setNo)).puzzles[k - 1];
   const after = el('div', { class: 'after' });
   const host = el('div', {});
-  const nextHref = k < PUZZLES_PER_SET ? `${BASE}/practice/${setNo}/${k + 1}` : BASE;
-  const nextLabel = k < PUZZLES_PER_SET ? 'Next puzzle' : 'Back to sets';
+  const nextHref = retry ? retry.returnHash : k < PUZZLES_PER_SET ? `${BASE}/practice/${setNo}/${k + 1}` : BASE;
+  const nextLabel = retry ? 'Compare with the optimal solution' : k < PUZZLES_PER_SET ? 'Next puzzle' : 'Back to sets';
   let board = null;
 
   function start() {
     board?.destroy();
     after.replaceChildren();
-    const log = createPickLog({ set: setNo, puzzleId: puzzle.id, mode: 'practice', optimal: puzzle.answer.length });
+    const log = createPickLog({ set: setNo, puzzleId: puzzle.id, mode: 'practice', source: retry ? 'review' : 'pool', optimal: puzzle.answer.length });
     board = createBoard(puzzle, {
       mode: 'practice',
       log,
@@ -469,13 +471,23 @@ async function renderPractice(ctx, setNo, k) {
     const result = session.status === 'skipped' ? 'skipped' : out.exact ? 'correct' : 'wrong';
     const attempt = log.end(result, { picks: session.picks, hintsUsed: session.hintsUsed });
     recorder.saveAttempt(attempt);
+    if (retry) {
+      // Retrieval first: grade and reschedule now, compare with the optimal solution on the review page.
+      completeRetry(GAME_ID, attempt);
+      after.replaceChildren(
+        el('div', { class: 'after-actions' }, el('a', { class: 'btn btn-primary', href: nextHref }, nextLabel)),
+        coachPanel(attempt, puzzle, cfg.paceSec),
+      );
+      after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
+      return;
+    }
     store.recordPractice(GAME_ID, setNo, puzzle.id, result === 'correct' ? 1 : 0);
     board.showMarks();
     after.replaceChildren(
       el('div', { class: 'after-actions' },
         el('button', { type: 'button', class: 'btn', onclick: () => start() }, 'Try again'),
         el('a', { class: 'btn btn-primary', href: nextHref }, nextLabel)),
-      createExplainPanel(puzzle, out),
+      trackExplain(createExplainPanel(puzzle, out), attempt),
       coachPanel(attempt, puzzle, cfg.paceSec),
     );
     after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
@@ -485,15 +497,15 @@ async function renderPractice(ctx, setNo, k) {
   root.append(
     el('div', { class: 'page-head play-head' },
       el('p', { class: 'crumbs' }, el('a', { href: BASE }, 'Pattern Rule'), ` / Set ${setNo}: ${cfg.name}`),
-      el('h1', {}, `Practice: puzzle ${k} of ${PUZZLES_PER_SET}`),
+      el('h1', {}, retry ? 'Review: solve it again before you look' : `Practice: puzzle ${k} of ${PUZZLES_PER_SET}`),
       el('p', { class: 'muted' }, `Suggested pace: about ${cfg.paceSec} s. No clock in practice mode.`),
     ),
     shapeKey(),
     host,
     after,
     el('div', { class: 'after-actions' },
-      k > 1 ? el('a', { class: 'btn btn-quiet', href: `${BASE}/practice/${setNo}/${k - 1}` }, 'Previous puzzle') : null,
-      el('a', { class: 'btn btn-quiet', href: nextHref }, nextLabel)),
+      !retry && k > 1 ? el('a', { class: 'btn btn-quiet', href: `${BASE}/practice/${setNo}/${k - 1}` }, 'Previous puzzle') : null,
+      el('a', { class: 'btn btn-quiet', href: nextHref }, retry ? 'Back to the review' : nextLabel)),
   );
   start();
   ctx.onDispose(() => board?.destroy());
@@ -684,6 +696,7 @@ async function renderRun(ctx, setNo) {
     const puzzlesById = new Map(results.map((r) => [r.puzzle.id, r.puzzle]));
     const history = recorder.attempts({ game: GAME_ID, set: setNo });
     const runCoach = coachRun(run, results.map((r) => r.attempt), puzzlesById, { paceSec: cfg.paceSec, budgetMs: RUN_MS, history });
+    noteRun(GAME_ID, run, results.map((r) => r.attempt), runCoach.perPuzzle, puzzlesById);
     const correct = results.filter((r) => attemptResult(r.attempt) === 'correct').length;
 
     const review = el('div', { class: 'review-host' });
@@ -708,7 +721,7 @@ async function renderRun(ctx, setNo) {
             review.replaceChildren(
               el('h3', { text: `Puzzle ${r.index + 1}${r.source === 'pool' ? '' : r.source === 'generated' ? ' (freshly generated)' : ' (reshuffled repeat)'}` }),
               reviewBoard(r.puzzle, picks),
-              createExplainPanel(r.puzzle, g),
+              trackExplain(createExplainPanel(r.puzzle, g), r.attempt),
               coachPanel(r.attempt, r.puzzle, cfg.paceSec),
             );
             review.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
@@ -770,6 +783,25 @@ function reviewBoard(puzzle, picks) {
   );
 }
 
+// ---------------------------------------------------------------- review library hooks
+
+function renderRetry(ctx) {
+  const r = peekRetry(GAME_ID);
+  if (!r?.puzzle) {
+    ctx.root.append(el('p', { class: 'notice' }, 'No review puzzle is waiting. ', el('a', { href: '#/review/patternrule' }, 'Open the Pattern Rule review library')));
+    return null;
+  }
+  return renderPractice(ctx, r.set, 0, r);
+}
+
+// Watch mode on the review page: the worked solution, with the original result line.
+export function reviewWalkthrough(puzzle, attempt) {
+  const picks = attemptPicks(attempt);
+  const res = attemptResult(attempt);
+  const status = res === 'skipped' ? 'skipped' : res === 'timeout' ? 'timeout' : 'answered';
+  return createExplainPanel(puzzle, { status, exact: res === 'correct', picks, falsePicks: picks.filter((i) => !puzzle.answer.includes(i)), misses: puzzle.answer.filter((i) => !picks.includes(i)) });
+}
+
 // ---------------------------------------------------------------- entry
 
 export async function mountPatternRule(main, args = []) {
@@ -801,6 +833,7 @@ export async function mountPatternRule(main, args = []) {
       if (!mode) renderMenu(ctx);
       else if (mode === 'practice') await renderPractice(ctx, Number(a), Number(b) || 1);
       else if (mode === 'run') await renderRun(ctx, Number(a));
+      else if (mode === 'retry') await renderRetry(ctx);
       else root.append(el('p', { class: 'notice' }, 'Unknown page. ', el('a', { href: BASE }, 'Back to Pattern Rule')));
     } catch (err) {
       console.error(err);

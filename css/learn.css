@@ -1,0 +1,127 @@
+/* Learning layer: achievements, reports, review library, replay, print and export. */
+
+:root { --series-other: #a8a79e; }
+@media (prefers-color-scheme: dark) { :root { --series-other: #6b6a64; } }
+
+.learn h1 { margin-bottom: 4px; }
+.learn-strip, .learn-overview .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 20px; }
+
+/* Badge chip and tiers */
+.tier-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; min-height: 36px;
+  border: 1.5px solid var(--line); border-radius: 999px; background: var(--card);
+  color: var(--fg); text-decoration: none; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.tier-chip:hover { border-color: var(--fg); }
+.tier-chip-small { min-height: 30px; padding: 2px 10px; font-size: 0.85rem; }
+.tier-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.tier-apprentice .tier-dot { background: var(--series-1); }
+.tier-practitioner .tier-dot { background: var(--series-3); }
+.tier-adept .tier-dot { background: var(--series-2); }
+.tier-master .tier-dot { background: var(--ok); box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ok); }
+.nav-chip { display: inline-flex; align-items: center; margin-left: 4px; }
+.due-link { margin-top: 8px; font-size: 0.9rem; font-weight: 600; }
+
+.badge-panel, .report-header { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin: 12px 0 24px; }
+.badge-panel > div:last-child, .report-header > div:last-child { flex: 1 1 320px; }
+.badge-big { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 140px; padding: 16px; border: 3px solid var(--muted); border-radius: 16px; }
+.badge-big.tier-apprentice { border-color: var(--series-1); }
+.badge-big.tier-practitioner { border-color: var(--series-3); }
+.badge-big.tier-adept { border-color: var(--series-2); }
+.badge-big.tier-master { border-color: var(--ok); border-style: double; border-width: 6px; }
+.badge-big-tier { font-size: 1.4rem; font-weight: 700; }
+.badge-big-score { color: var(--muted); font-variant-numeric: tabular-nums; }
+.formula { background: var(--bg); border-radius: 8px; padding: 8px 12px; }
+
+/* Skill cards and achievements */
+.skill-grid, .ach-grid, .notebook { list-style: none; padding: 0; margin: 0 0 24px; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.skill-card, .ach-card, .note-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.skill-card h3, .ach-card h4, .note-card h3 { margin: 0; font-size: 1.05rem; }
+.skill-card.is-stale { border-style: dashed; }
+.skill-score { margin: 0; }
+.skill-score strong { font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+.ach-group { margin: 16px 0 8px; font-size: 1rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.ach-card.is-unlocked { border-color: var(--ok); }
+.ach-desc { margin: 0; }
+.ach-progress { display: flex; align-items: center; gap: 8px; }
+.ach-progress progress { flex: 1; height: 10px; accent-color: var(--accent); }
+.ach-pct { font-variant-numeric: tabular-nums; font-size: 0.85rem; min-width: 3.2em; text-align: right; }
+.note-card.is-mastered { border-color: var(--ok); }
+
+/* Tabs between games */
+.game-tabs ul { list-style: none; display: flex; flex-wrap: wrap; gap: 4px; padding: 0; margin: 8px 0 16px; }
+.game-tabs a { display: inline-block; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; color: var(--fg); }
+.game-tabs a[aria-current] { background: var(--fg); color: var(--bg); font-weight: 600; }
+
+/* Report */
+.trend-row { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 8px; }
+.trend { font-weight: 600; font-variant-numeric: tabular-nums; }
+.trend-up { color: var(--ok); }
+.trend-down { color: var(--warn); }
+.trend-none { color: var(--muted); font-weight: 400; }
+.spark { display: block; overflow: visible; }
+.spark-line { fill: none; stroke: var(--series-1); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.spark-dot { fill: var(--series-1); stroke: var(--card); stroke-width: 1.5; }
+.spark-empty { stroke: var(--line); stroke-dasharray: 3 3; }
+.viz-bar-other { fill: var(--series-other); }
+.viz-key-other { background: var(--series-other); }
+.viz-legend li.is-resolved { text-decoration: line-through; }
+.viz-par { stroke: var(--fg); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.viz-par-label { fill: var(--fg); font-weight: 600; }
+.viz-bar:focus-visible { outline: none; stroke: var(--focus); stroke-width: 3; }
+.tag-notes { padding-left: 1.2em; }
+.tag-notes mark { background: color-mix(in srgb, var(--mid) 25%, transparent); color: inherit; padding: 0 3px; border-radius: 3px; }
+.prescriptions li { margin-bottom: 8px; }
+.prescriptions p { margin: 0; }
+.cheat-sheet { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 16px 12px; margin: 24px 0; }
+.cheat-sheet h3 { font-size: 1rem; margin: 14px 0 4px; }
+.trap-hot { font-weight: 600; }
+.trap-hot .badge { margin-left: 8px; font-weight: 400; }
+.delta-good { color: var(--ok); font-weight: 600; }
+.delta-bad { color: var(--warn); font-weight: 600; }
+.snapshots .toolbar label { display: inline-flex; gap: 6px; align-items: center; }
+
+/* Review library */
+.note-editor { display: flex; flex-direction: column; gap: 4px; }
+.note-editor label { font-size: 0.85rem; color: var(--muted); }
+.note-editor textarea { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); resize: vertical; }
+.tag-editor { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.tag-chip { font-size: 0.8rem; min-height: 30px; cursor: pointer; background: transparent; color: var(--fg); }
+.tag-chip.is-on { border-color: var(--mid); background: color-mix(in srgb, var(--mid) 15%, transparent); }
+p .tag-chip { display: inline-flex; margin: 0 4px 4px 0; cursor: default; }
+.queue { padding-left: 1.4em; }
+.queue-item { margin-bottom: 8px; }
+
+/* Replay */
+.replay-panes { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); align-items: start; margin: 12px 0 24px; }
+.replay-pane { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 12px 12px; }
+.replay-pane h3 { margin: 4px 0 8px; font-size: 1rem; }
+.replay-steps { counter-reset: step; }
+.replay-steps li { padding: 4px 6px 4px 2.2em; position: relative; border-radius: 6px; }
+.replay-steps li::before { content: counter(step) "."; position: absolute; left: 6px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.replay-steps li[aria-current] { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.replay-steps li.step-off { border-left: 3px solid var(--warn); }
+.replay-steps li.step-on { border-left: 3px solid var(--ok); }
+.replay-steps li.step-diverge { background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.replay-steps .badge { margin-left: 6px; }
+.mode-switch { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.mode-switch [aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.learn .toolbar { justify-content: flex-start; gap: 8px; }
+
+/* Print (A4): ?print=1 and the browser print dialog */
+@page { size: A4; margin: 14mm; }
+@media print {
+  .site-header, .site-footer .maker-foot, .skip-link, .no-print, .toolbar, .mode-switch, .game-tabs, button, .viz-tip { display: none !important; }
+  body { background: #fff; color: #000; font-size: 11pt; }
+  .learn section, .viz, .cheat-sheet, table { break-inside: avoid; }
+  .report-header, .badge-panel, .cheat-sheet, .skill-card, .ach-card { box-shadow: none; background: #fff; }
+  .viz-table { display: block; }
+  .viz-table > summary { display: none; }
+  .viz-table:not([open]) > div { display: block; }
+  a { color: inherit; text-decoration: none; }
+  .cheat-sheet { break-before: page; }
+}
+.print-mode .site-header nav { display: none; }
+
+/* Standalone export */
+.export-doc main { max-width: 960px; margin: 0 auto; padding: 16px; }

@@ -14,6 +14,7 @@ import { explainSolution, resultSummary, STRATEGY, pieceName, blockStyle, moveTe
 import { SET_CONFIGS, PUZZLES_PER_SET } from './gen.js';
 import { createRunStream, generateFresh, freshSeed, TUTORIAL_PUZZLE } from './stream.js';
 import { coachPuzzle, coachRun } from './coach.js';
+import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry } from '../../core/learn-hooks.js';
 
 const GAME_ID = 'blockslide';
 const RUN_MS = 6 * 60 * 1000;
@@ -492,6 +493,7 @@ function coachHost(attempt, puzzle, paceSec) {
     let res;
     try {
       res = coachPuzzle(attempt, puzzle, { history: recorder.attempts({ game: GAME_ID, set: attempt.set }), paceSec, deep: true });
+      noteAttempt(GAME_ID, attempt, res.findings, puzzle);
     } catch (err) {
       console.error(err);
       host.lastChild.textContent = 'The coach could not review this attempt.';
@@ -591,21 +593,21 @@ function lockedNotice(root, setNo) {
 
 // ---------------------------------------------------------------- practice
 
-async function renderPractice(ctx, setNo, k) {
+// retry: a puzzle handed over by the review library (any set, generated or variant), played blind.
+async function renderPractice(ctx, setNo, k, retry = null) {
   const { root } = ctx;
   const cfg = SET_CONFIGS.find((c) => c.set === setNo);
-  if (!cfg || !(k >= 1 && k <= PUZZLES_PER_SET)) {
+  if (!cfg || (!retry && !(k >= 1 && k <= PUZZLES_PER_SET))) {
     root.append(el('p', { class: 'notice' }, 'Unknown puzzle. ', el('a', { href: '#/blockslide' }, 'Back to sets')));
     return;
   }
-  if (!isUnlocked(setNo)) return lockedNotice(root, setNo);
-  const data = await loadSet(setNo);
-  const puzzle = data.puzzles[k - 1];
+  if (!retry && !isUnlocked(setNo)) return lockedNotice(root, setNo);
+  const puzzle = retry ? retry.puzzle : (await loadSet(setNo)).puzzles[k - 1];
 
   const after = el('div', { class: 'after' });
-  const prevLink = k > 1 ? el('a', { class: 'btn btn-quiet', href: `#/blockslide/practice/${setNo}/${k - 1}` }, 'Previous puzzle') : null;
-  const nextHref = k < PUZZLES_PER_SET ? `#/blockslide/practice/${setNo}/${k + 1}` : '#/blockslide';
-  const nextLabel = k < PUZZLES_PER_SET ? 'Next puzzle' : 'Back to sets';
+  const prevLink = !retry && k > 1 ? el('a', { class: 'btn btn-quiet', href: `#/blockslide/practice/${setNo}/${k - 1}` }, 'Previous puzzle') : null;
+  const nextHref = retry ? retry.returnHash : k < PUZZLES_PER_SET ? `#/blockslide/practice/${setNo}/${k + 1}` : '#/blockslide';
+  const nextLabel = retry ? 'Compare with the optimal line' : k < PUZZLES_PER_SET ? 'Next puzzle' : 'Back to sets';
 
   let area = null;
   const host = el('div', {});
@@ -613,7 +615,7 @@ async function renderPractice(ctx, setNo, k) {
   function start() {
     area?.destroy();
     after.replaceChildren();
-    const log = createAttemptLog({ game: GAME_ID, set: setNo, puzzleId: puzzle.id, mode: 'practice', optimal: puzzle.optimal });
+    const log = createAttemptLog({ game: GAME_ID, set: setNo, puzzleId: puzzle.id, mode: 'practice', source: retry ? 'review' : 'pool', optimal: puzzle.optimal });
     area = createPlayArea(puzzle, {
       mode: 'practice',
       log,
@@ -628,6 +630,16 @@ async function renderPractice(ctx, setNo, k) {
     const eff = efficiency(puzzle.optimal, game.moves, solved);
     const attempt = log.end(outcome, { moves: game.moves, hintsUsed });
     recorder.saveAttempt(attempt);
+    if (retry) {
+      // Retrieval first: grade and reschedule now, compare with the optimal line on the review page.
+      completeRetry(GAME_ID, attempt);
+      after.replaceChildren(
+        el('div', { class: 'after-actions' }, el('a', { class: 'btn btn-primary', href: nextHref }, nextLabel)),
+        coachHost(attempt, puzzle, cfg.paceSec),
+      );
+      after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
+      return;
+    }
     // Hinted solves still count, but the coach flags them so you know to try again unaided.
     store.recordPractice(GAME_ID, setNo, puzzle.id, eff);
     after.replaceChildren(
@@ -636,7 +648,7 @@ async function renderPractice(ctx, setNo, k) {
         el('a', { class: 'btn btn-primary', href: nextHref }, nextLabel),
       ),
       coachHost(attempt, puzzle, cfg.paceSec),
-      createExplainPanel(puzzle, { moves: game.moves, solved }, ctx),
+      trackExplain(createExplainPanel(puzzle, { moves: game.moves, solved }, ctx), attempt),
     );
     after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
     after.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
@@ -644,13 +656,13 @@ async function renderPractice(ctx, setNo, k) {
 
   root.append(
     el('div', { class: 'page-head play-head' },
-      el('p', { class: 'crumbs' }, el('a', { href: '#/blockslide' }, 'Block Slide'), ` / Set ${setNo}: ${cfg.name}`),
-      el('h1', {}, `Practice: puzzle ${k} of ${PUZZLES_PER_SET}`),
+      el('p', { class: 'crumbs' }, el('a', { href: retry ? '#/review/blockslide' : '#/blockslide' }, retry ? 'Block Slide review' : 'Block Slide'), ` / Set ${setNo}: ${cfg.name}`),
+      el('h1', {}, retry ? 'Review: solve it again before you look' : `Practice: puzzle ${k} of ${PUZZLES_PER_SET}`),
       el('p', { class: 'muted' }, `Suggested pace: about ${cfg.paceSec} s. No clock in practice mode.`),
     ),
     host,
     after,
-    el('div', { class: 'after-actions' }, prevLink, el('a', { class: 'btn btn-quiet', href: nextHref }, nextLabel)),
+    el('div', { class: 'after-actions' }, prevLink, el('a', { class: 'btn btn-quiet', href: retry ? retry.returnHash : nextHref }, retry ? 'Back to the review' : nextLabel)),
   );
   start();
   ctx.onDispose(() => area?.destroy());
@@ -896,6 +908,7 @@ async function renderRun(ctx, setNo) {
     const puzzlesById = new Map(results.map((r) => [r.puzzle.id, r.puzzle]));
     const history = recorder.attempts({ game: GAME_ID, set: setNo });
     const runCoach = coachRun(run, results.map((r) => r.attempt), puzzlesById, { paceSec: cfg.paceSec, budgetMs: RUN_MS, history });
+    noteRun(GAME_ID, run, results.map((r) => r.attempt), runCoach.perPuzzle, puzzlesById);
 
     const review = el('div', { class: 'review-host' });
     const rows = results.map((r) => {
@@ -917,7 +930,7 @@ async function renderRun(ctx, setNo) {
               review.replaceChildren(
                 el('h3', { text: `Puzzle ${r.index + 1}${r.source === 'pool' ? '' : r.source === 'generated' ? ' (freshly generated)' : ' (rotated or mirrored variant)'}` }),
                 coachHost(r.attempt, r.puzzle, cfg.paceSec),
-                createExplainPanel(r.puzzle, { moves: m.moves, solved: r.attempt.outcome === 'solved' }, ctx),
+                trackExplain(createExplainPanel(r.puzzle, { moves: m.moves, solved: r.attempt.outcome === 'solved' }, ctx), r.attempt),
               );
               review.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
             },
@@ -970,6 +983,22 @@ async function renderRun(ctx, setNo) {
   }
 }
 
+// ---------------------------------------------------------------- review library hooks
+
+function renderRetry(ctx) {
+  const r = peekRetry(GAME_ID);
+  if (!r?.puzzle) {
+    ctx.root.append(el('p', { class: 'notice' }, 'No review puzzle is waiting. ', el('a', { href: '#/review/blockslide' }, 'Open the Block Slide review library')));
+    return null;
+  }
+  return renderPractice(ctx, r.set, 0, r);
+}
+
+// Watch mode on the review page: the optimal line replay, with the original result line.
+export function reviewWalkthrough(puzzle, attempt, onDispose) {
+  return createExplainPanel(puzzle, { moves: attempt.metrics?.moves ?? attempt.moves ?? 0, solved: attempt.outcome === 'solved' }, { onDispose });
+}
+
 // ---------------------------------------------------------------- entry
 
 export async function mountBlockSlide(main, args = []) {
@@ -1000,6 +1029,7 @@ export async function mountBlockSlide(main, args = []) {
       if (!mode) renderMenu(ctx);
       else if (mode === 'practice') await renderPractice(ctx, Number(a), Number(b) || 1);
       else if (mode === 'run') await renderRun(ctx, Number(a));
+      else if (mode === 'retry') await renderRetry(ctx);
       else root.append(el('p', { class: 'notice' }, 'Unknown page. ', el('a', { href: '#/blockslide' }, 'Back to Block Slide')));
     } catch (err) {
       console.error(err);

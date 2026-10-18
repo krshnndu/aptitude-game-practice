@@ -1,6 +1,8 @@
 import { mountAdmin } from './admin.js';
 import { ev } from './board.js';
-// Site shell: hash router, home page game cards and the about page.
+// Site shell: hash router, home page game cards and the about page. Learning routes:
+// #/achievements, #/report/<game>[/snapshot/<id>], #/review/<game>[/<attemptId>], #/review/today.
+// A query after the hash (#/review/blockslide?filter=wasted) or before it (?print=1) reaches the page.
 // Each route renders into <main>; a route may return a cleanup function (timers, key handlers).
 
 import { el } from './dom.js';
@@ -12,55 +14,35 @@ import { mountDigitEquation } from '../games/digitequation/play.js';
 import { mountPatternRule } from '../games/patternrule/play.js';
 import { mountAnalytics } from './analytics-page.js';
 import { startBoard, mountBoard, track } from './board.js';
+import { GAMES } from './games.js';
+import { mountAchievements } from './achievements-page.js';
+import { mountReport } from './report-page.js';
+import { mountReview } from './review-page.js';
+import { loadContext, tierChip, refreshNavChip } from './learn-ui.js';
 
 const MOUNTS = { blockslide: mountBlockSlide, latinsquare: mountLatinSquare, gridmemory: mountGridMemory, operatorswitch: mountOperatorSwitch, digitequation: mountDigitEquation, patternrule: mountPatternRule };
 
-export const GAMES = [
-  {
-    id: 'blockslide',
-    name: 'Block Slide',
-    skill: 'Planning and spatial reasoning',
-    blurb: 'Slide blocks out of the way and steer the ball to the exit in the fewest moves.',
-    ready: true,
-  },
-  {
-    id: 'latinsquare',
-    name: 'Latin Square',
-    skill: 'Deductive reasoning',
-    blurb: 'Work out the hidden symbol from row and column rules: every symbol once per line.',
-    ready: true,
-  },
-  {
-    id: 'gridmemory',
-    name: 'Grid Memory',
-    skill: 'Working memory, dual task',
-    blurb: 'Remember positions on a grid while answering quick side questions in between.',
-    ready: true,
-  },
-  {
-    id: 'operatorswitch',
-    name: 'Operator Switch',
-    skill: 'Numerical reasoning',
-    blurb: 'Figure out which hidden operations turn the inputs into the outputs.',
-    ready: true,
-  },
-  {
-    id: 'digitequation',
-    name: 'Digit Equation',
-    skill: 'Numerical reasoning',
-    blurb: 'Pick the digits that make a short equation true, against the clock.',
-    ready: true,
-  },
-  {
-    id: 'patternrule',
-    name: 'Pattern Rule',
-    skill: 'Inductive reasoning',
-    blurb: 'Spot the rule that separates the shapes that fit from those that do not.',
-    ready: true,
-  },
-];
+export { GAMES };
+
+// Badge chip and the review queue button; never lets a learning-data problem break the home page.
+function learningStrip() {
+  try {
+    const ctx = loadContext();
+    const total = Object.values(ctx.due).reduce((a, b) => a + b, 0);
+    return { ctx, node: el('section', { class: 'learn-strip', 'aria-label': 'Your learning' },
+      tierChip(ctx.skill),
+      el('a', { class: `btn${total ? ' btn-primary' : ''}`, href: '#/review/today' }, total ? `Review queue: ${total} due today` : 'Review queue: nothing due'),
+      el('a', { class: 'btn', href: '#/achievements' }, 'Achievements'),
+      el('a', { class: 'btn', href: '#/analytics' }, 'Progress and reports')) };
+  } catch (err) {
+    console.error(err);
+    return { ctx: null, node: null };
+  }
+}
 
 function renderHome(main) {
+  const strip = learningStrip();
+  const due = strip.ctx?.due ?? {};
   main.append(
     el('section', { class: 'hero' },
       el('h1', { text: 'Practice game-based aptitude tests, free' }),
@@ -68,6 +50,7 @@ function renderHome(main) {
         'Short original puzzles in the style of modern game-based cognitive assessments. ',
         'Every puzzle has a computer-verified optimal solution, replayed step by step with the reasoning behind each move.'),
     ),
+    strip.node,
     el('h2', { class: 'section-title', text: 'Games' }),
     el('ul', { class: 'card-grid', role: 'list' },
       GAMES.map((g) =>
@@ -81,6 +64,7 @@ function renderHome(main) {
           g.ready
             ? el('a', { class: 'btn btn-primary', href: `#/${g.id}` }, `Play ${g.name}`)
             : el('span', { class: 'btn btn-disabled', 'aria-disabled': 'true' }, 'Coming soon'),
+          due[g.id] ? el('a', { class: 'due-link', href: `#/review/${g.id}` }, `${due[g.id]} due for review`) : null,
         ),
       ),
     ),
@@ -100,6 +84,7 @@ function renderHome(main) {
         el('li', {}, el('strong', { text: 'Timed run: ' }), 'exam mode, like the real format: 6 minutes, puzzles keep coming, no undo or hints, solve or skip and move on.'),
         el('li', {}, el('strong', { text: 'Coach: ' }), 'after each puzzle and each run, findings computed from your own moves: wasted moves, thinking time, where you left the optimal line, skip timing.'),
         el('li', {}, el('strong', { text: 'Analytics: ' }), 'score trend per run, jumps, efficiency per set, personal bests, with a JSON backup of your history.'),
+        el('li', {}, el('strong', { text: 'Review and reports: ' }), 'failed or inefficient puzzles go to a mistake notebook and come back on a 1, 3, 7, 14, 30 day schedule. Retry them blind first, then compare with the optimal solution. Each game has a learning report with error trends and a strategy cheat sheet.'),
         el('li', {}, el('strong', { text: 'Progress: ' }), 'stored only in this browser. Reach 70% average efficiency to unlock the next set.'),
       ),
     ),
@@ -142,11 +127,17 @@ async function route() {
   }
   const main = document.getElementById('main');
   main.replaceChildren();
-  const parts = (location.hash.replace(/^#\/?/, '') || '').split('/').filter(Boolean);
+  const raw = location.hash.replace(/^#\/?/, '') || '';
+  const qi = raw.indexOf('?');
+  const query = new URLSearchParams(location.search);
+  if (qi >= 0) for (const [k, v] of new URLSearchParams(raw.slice(qi + 1))) query.set(k, v);
+  const parts = (qi >= 0 ? raw.slice(0, qi) : raw).split('/').filter(Boolean);
   const [page, ...rest] = parts;
-  for (const a of document.querySelectorAll('.site-header nav a')) {
+  // Reports and the review library live under Progress in the nav.
+  const navPage = page === 'report' || page === 'review' ? 'analytics' : page || '';
+  for (const a of document.querySelectorAll('.site-header nav > a')) {
     const target = a.getAttribute('href').replace(/^#\/?/, '');
-    a.toggleAttribute('aria-current', target === (page || ''));
+    a.toggleAttribute('aria-current', target === navPage);
   }
   try {
     if (!page) renderHome(main);
@@ -154,6 +145,12 @@ async function route() {
     else if (page === 'analytics') cleanup = mountAnalytics(main);
     else if (page === 'board') cleanup = mountBoard(main);
     else if (page === 'admin') cleanup = mountAdmin(main);
+    else if (page === 'achievements') cleanup = mountAchievements(main);
+    else if (page === 'report' || page === 'review') {
+      const dispose = await (page === 'report' ? mountReport : mountReview)(main, rest, query);
+      if (token !== routeToken) dispose?.();
+      else cleanup = dispose ?? null;
+    }
     else if (MOUNTS[page]) {
       const dispose = await MOUNTS[page](main, rest);
       // A newer navigation happened while loading: drop this view.
@@ -165,8 +162,9 @@ async function route() {
     console.error(err);
     main.replaceChildren(el('p', { class: 'notice' }, `Something went wrong: ${err.message}`));
   }
-  const titles = { blockslide: 'Block Slide', latinsquare: 'Latin Square', gridmemory: 'Grid Memory', operatorswitch: 'Operator Switch', digitequation: 'Digit Equation', patternrule: 'Pattern Rule', about: 'About', analytics: 'Progress and analytics', board: 'Leaderboard', admin: 'Site Operations & Analytics' };
+  const titles = { blockslide: 'Block Slide', latinsquare: 'Latin Square', gridmemory: 'Grid Memory', operatorswitch: 'Operator Switch', digitequation: 'Digit Equation', patternrule: 'Pattern Rule', about: 'About', analytics: 'Progress and analytics', board: 'Leaderboard', achievements: 'Achievements', report: 'Learning report', review: 'Review library', admin: 'Site Operations & Analytics' };
   track(page);
+  refreshNavChip();
   document.title = `${titles[page] ?? 'Games'} | CogPrep Arcade`;
   window.scrollTo(0, 0);
 }

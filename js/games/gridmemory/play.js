@@ -13,6 +13,8 @@ import { SET_CONFIGS, PUZZLES_PER_SET, GAP_MS, trialSeconds, puzzleId } from './
 import { createStaircase, createRunSource, tutorialTrial } from './stream.js';
 import { explainTrial, questionText, answerWord, OP_TEXT, STRATEGY, landmark } from './explain.js';
 import { coachTrial, coachRun } from './coach.js';
+import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry } from '../../core/learn-hooks.js';
+import { reviewAttempt } from './coach.js';
 import { buildAttempt, GAME_ID } from './record.js';
 
 const RUN_MS = 6 * 60 * 1000;
@@ -565,6 +567,7 @@ function coachHost(attempt, puzzle) {
   let res;
   try {
     res = coachTrial(attempt, puzzle, { history: recorder.attempts({ game: GAME_ID, set: attempt.set }) });
+    noteAttempt(GAME_ID, attempt, res.findings, puzzle);
   } catch (err) {
     console.error(err);
     return el('section', { class: 'coach' }, el('h3', { text: 'Coach' }), el('p', { class: 'muted', text: 'The coach could not review this attempt.' }));
@@ -668,21 +671,21 @@ function lockedNotice(root, setNo) {
 
 // ---------------------------------------------------------------- practice
 
-async function renderPractice(ctx, setNo, k) {
+// retry: a puzzle handed over by the review library (any set or source), played blind.
+async function renderPractice(ctx, setNo, k, retry = null) {
   const { root } = ctx;
   const cfg = SET_CONFIGS.find((c) => c.set === setNo);
-  if (!cfg || !(k >= 1 && k <= PUZZLES_PER_SET)) {
+  if (!cfg || (!retry && !(k >= 1 && k <= PUZZLES_PER_SET))) {
     root.append(el('p', { class: 'notice' }, 'Unknown trial. ', el('a', { href: '#/gridmemory' }, 'Back to sets')));
     return;
   }
-  if (!isUnlocked(setNo)) return lockedNotice(root, setNo);
-  const data = await loadSet(setNo);
-  const puzzle = data.puzzles[k - 1];
+  if (!retry && !isUnlocked(setNo)) return lockedNotice(root, setNo);
+  const puzzle = retry ? retry.puzzle : (await loadSet(setNo)).puzzles[k - 1];
 
   const after = el('div', { class: 'after' });
-  const prevLink = k > 1 ? el('a', { class: 'btn btn-quiet', href: `#/gridmemory/practice/${setNo}/${k - 1}` }, 'Previous trial') : null;
-  const nextHref = k < PUZZLES_PER_SET ? `#/gridmemory/practice/${setNo}/${k + 1}` : '#/gridmemory';
-  const nextLabel = k < PUZZLES_PER_SET ? 'Next trial' : 'Back to sets';
+  const prevLink = !retry && k > 1 ? el('a', { class: 'btn btn-quiet', href: `#/gridmemory/practice/${setNo}/${k - 1}` }, 'Previous trial') : null;
+  const nextHref = retry ? retry.returnHash : k < PUZZLES_PER_SET ? `#/gridmemory/practice/${setNo}/${k + 1}` : '#/gridmemory';
+  const nextLabel = retry ? 'Compare with the optimal solution' : k < PUZZLES_PER_SET ? 'Next trial' : 'Back to sets';
   const host = el('div', {});
   let area = null;
   let startedAt = 0;
@@ -711,8 +714,18 @@ async function renderPractice(ctx, setNo, k) {
   }
 
   function finish(trial) {
-    const attempt = buildAttempt(trial, { set: setNo, mode: 'practice', source: relaxedPractice ? 'relaxed' : 'pool', startedAt: startedAt || Date.now() });
+    const attempt = buildAttempt(trial, { set: setNo, mode: 'practice', source: retry ? 'review' : relaxedPractice ? 'relaxed' : 'pool', startedAt: startedAt || Date.now() });
     recorder.saveAttempt(attempt);
+    if (retry) {
+      // Retrieval first: grade and reschedule now, compare with the optimal solution on the review page.
+      completeRetry(GAME_ID, attempt);
+      after.replaceChildren(
+        el('div', { class: 'after-actions' }, el('a', { class: 'btn btn-primary', href: nextHref }, nextLabel)),
+        coachHost(attempt, puzzle),
+      );
+      after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
+      return;
+    }
     store.recordPractice(GAME_ID, setNo, puzzle.id, attempt.metrics.efficiency);
     after.replaceChildren(
       el('div', { class: 'after-actions' },
@@ -720,7 +733,7 @@ async function renderPractice(ctx, setNo, k) {
         el('a', { class: 'btn btn-primary', href: nextHref }, nextLabel),
       ),
       coachHost(attempt, puzzle),
-      createExplainPanel(puzzle, trial),
+      trackExplain(createExplainPanel(puzzle, trial), attempt),
     );
     after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
     after.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
@@ -729,13 +742,13 @@ async function renderPractice(ctx, setNo, k) {
   root.append(
     el('div', { class: 'page-head play-head' },
       el('p', { class: 'crumbs' }, el('a', { href: '#/gridmemory' }, 'Grid Memory'), ` / Set ${setNo}: ${cfg.name}`),
-      el('h1', {}, `Practice: trial ${k} of ${PUZZLES_PER_SET}`),
+      el('h1', {}, retry ? 'Review: solve it again before you look' : `Practice: trial ${k} of ${PUZZLES_PER_SET}`),
       el('p', { class: 'muted' }, `${puzzle.length} cells on a ${cfg.n}x${cfg.n} grid. No run clock in practice mode.`),
       el('label', { class: 'toggle', for: 'gm-relaxed' }, relaxedBox, ' Relaxed: no time limit on side questions'),
     ),
     host,
     after,
-    el('div', { class: 'after-actions' }, prevLink, el('a', { class: 'btn btn-quiet', href: nextHref }, nextLabel)),
+    el('div', { class: 'after-actions' }, prevLink, el('a', { class: 'btn btn-quiet', href: nextHref }, retry ? 'Back to the review' : nextLabel)),
   );
   start();
   ctx.onDispose(() => area?.destroy());
@@ -927,6 +940,7 @@ async function renderRun(ctx, setNo) {
     const puzzlesById = new Map(results.map((r) => [r.puzzle.id, r.puzzle]));
     const history = recorder.attempts({ game: GAME_ID, set: setNo });
     const runCoach = coachRun(run, results.map((r) => r.attempt), puzzlesById, { budgetMs: RUN_MS, history });
+    noteRun(GAME_ID, run, results.map((r) => r.attempt), runCoach.perTrial, puzzlesById);
 
     const review = el('div', { class: 'review-host' });
     const rows = results.map((r) => {
@@ -947,7 +961,7 @@ async function renderRun(ctx, setNo) {
               review.replaceChildren(
                 el('h3', { text: `Trial ${r.index + 1}, length ${r.puzzle.length}${r.source === 'pool' ? '' : ' (freshly generated)'}` }),
                 coachHost(r.attempt, r.puzzle),
-                createExplainPanel(r.puzzle, r.trial),
+                trackExplain(createExplainPanel(r.puzzle, r.trial), r.attempt),
               );
               review.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
             },
@@ -1004,6 +1018,23 @@ async function renderRun(ctx, setNo) {
   }
 }
 
+// ---------------------------------------------------------------- review library hooks
+
+function renderRetry(ctx) {
+  const r = peekRetry(GAME_ID);
+  if (!r?.puzzle) {
+    ctx.root.append(el('p', { class: 'notice' }, 'No review puzzle is waiting. ', el('a', { href: '#/review/gridmemory' }, 'Open the Grid Memory review library')));
+    return null;
+  }
+  return renderPractice(ctx, r.set, 0, r);
+}
+
+// Watch mode on the review page: the worked solution, with the original result line.
+export function reviewWalkthrough(puzzle, attempt) {
+  const r = reviewAttempt(attempt, puzzle);
+  return createExplainPanel(puzzle, { result: () => r.result, answers: r.log.answers, recall: r.log.recall, hinted: r.log.hinted });
+}
+
 // ---------------------------------------------------------------- entry
 
 export async function mountGridMemory(main, args = []) {
@@ -1035,6 +1066,7 @@ export async function mountGridMemory(main, args = []) {
       if (!mode) renderMenu(ctx);
       else if (mode === 'practice') await renderPractice(ctx, Number(a), Number(b) || 1);
       else if (mode === 'run') await renderRun(ctx, Number(a));
+      else if (mode === 'retry') await renderRetry(ctx);
       else root.append(el('p', { class: 'notice' }, 'Unknown page. ', el('a', { href: '#/gridmemory' }, 'Back to Grid Memory')));
     } catch (err) {
       console.error(err);

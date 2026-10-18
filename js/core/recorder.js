@@ -425,11 +425,18 @@ export function createRecorder(storage = defaultStorage(), { limits = LIMITS } =
 
 // ---------------------------------------------------------------- backup file
 
-export function makeBackup({ recorder, progress = null, now = Date.now() }) {
-  return { kind: BACKUP_KIND, v: 1, exportedAt: new Date(now).toISOString(), recorder, progress };
+// Backup file versions: 1 = { recorder, progress }; 2 adds learn (review items, snapshots, learning
+// events). BACKUP_MIGRATIONS[v] turns a version v backup into v + 1.
+export const BACKUP_VERSION = 2;
+export const BACKUP_MIGRATIONS = {
+  1: (b) => ({ ...b, v: 2, learn: null }),
+};
+
+export function makeBackup({ recorder, progress = null, learn = null, now = Date.now() }) {
+  return { kind: BACKUP_KIND, v: BACKUP_VERSION, exportedAt: new Date(now).toISOString(), recorder, progress, learn };
 }
 
-// Accepts a full backup or a bare recorder archive. Throws with a readable message.
+// Accepts a full backup (any known version) or a bare recorder archive. Throws with a readable message.
 export function parseBackup(text) {
   let obj;
   try {
@@ -439,10 +446,17 @@ export function parseBackup(text) {
   }
   if (!obj || typeof obj !== 'object') throw new Error('the file does not contain a backup');
   if (obj.kind === BACKUP_KIND) {
+    let v = Number.isInteger(obj.v) ? obj.v : 1;
+    if (v > BACKUP_VERSION) throw new Error(`the backup is version ${v}, newer than this site (${BACKUP_VERSION})`);
+    while (v < BACKUP_VERSION) obj = BACKUP_MIGRATIONS[v++](obj);
     if (!obj.recorder || typeof obj.recorder !== 'object') throw new Error('the backup has no play history');
-    return { recorder: obj.recorder, progress: obj.progress && typeof obj.progress === 'object' ? obj.progress : null };
+    return {
+      recorder: obj.recorder,
+      progress: obj.progress && typeof obj.progress === 'object' ? obj.progress : null,
+      learn: obj.learn && typeof obj.learn === 'object' ? obj.learn : null,
+    };
   }
-  if (Array.isArray(obj.attempts) || Array.isArray(obj.runs)) return { recorder: obj, progress: null };
+  if (Array.isArray(obj.attempts) || Array.isArray(obj.runs)) return { recorder: obj, progress: null, learn: null };
   throw new Error('the file is not a CogPrep backup');
 }
 

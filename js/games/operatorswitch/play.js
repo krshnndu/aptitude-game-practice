@@ -13,6 +13,7 @@ import { explainPuzzle, hintSteps, resultSummary, chainName } from './explain.js
 import { SET_CONFIGS, PUZZLES_PER_SET, GAME_ID, puzzleId } from './gen.js';
 import { createRunStream, TUTORIAL_PUZZLE } from './stream.js';
 import { coachPuzzle, coachRun, attemptResult } from './coach.js';
+import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry } from '../../core/learn-hooks.js';
 
 const RUN_MS = 6 * 60 * 1000;
 const ARROW = '→';
@@ -368,6 +369,7 @@ function coachHost(attempt, puzzle, paceSec) {
   let list;
   try {
     const res = coachPuzzle(attempt, puzzle, { history: recorder.attempts({ game: GAME_ID, set: attempt.set }), paceSec });
+    noteAttempt(GAME_ID, attempt, res.findings, puzzle);
     list = el('ul', { class: 'findings', role: 'list' }, res.findings.map(findingItem));
   } catch (err) {
     console.error(err);
@@ -485,28 +487,28 @@ function lockedNotice(root, setNo) {
 
 // ---------------------------------------------------------------- practice
 
-async function renderPractice(ctx, setNo, k) {
+// retry: a puzzle handed over by the review library (any set or source), played blind.
+async function renderPractice(ctx, setNo, k, retry = null) {
   const { root } = ctx;
   const cfg = SET_CONFIGS.find((c) => c.set === setNo);
-  if (!cfg || !(k >= 1 && k <= PUZZLES_PER_SET)) {
+  if (!cfg || (!retry && !(k >= 1 && k <= PUZZLES_PER_SET))) {
     root.append(el('p', { class: 'notice' }, 'Unknown puzzle. ', el('a', { href: `#/${GAME_ID}` }, 'Back to sets')));
     return;
   }
-  if (!isUnlocked(setNo)) return lockedNotice(root, setNo);
-  const data = await loadSet(setNo);
-  const puzzle = data.puzzles[k - 1];
+  if (!retry && !isUnlocked(setNo)) return lockedNotice(root, setNo);
+  const puzzle = retry ? retry.puzzle : (await loadSet(setNo)).puzzles[k - 1];
 
   const after = el('div', { class: 'after' });
   const host = el('div', {});
-  const prevLink = k > 1 ? el('a', { class: 'btn btn-quiet', href: `#/${GAME_ID}/practice/${setNo}/${k - 1}` }, 'Previous puzzle') : null;
-  const nextHref = k < PUZZLES_PER_SET ? `#/${GAME_ID}/practice/${setNo}/${k + 1}` : `#/${GAME_ID}`;
-  const nextLabel = k < PUZZLES_PER_SET ? 'Next puzzle' : 'Back to sets';
+  const prevLink = !retry && k > 1 ? el('a', { class: 'btn btn-quiet', href: `#/${GAME_ID}/practice/${setNo}/${k - 1}` }, 'Previous puzzle') : null;
+  const nextHref = retry ? retry.returnHash : k < PUZZLES_PER_SET ? `#/${GAME_ID}/practice/${setNo}/${k + 1}` : `#/${GAME_ID}`;
+  const nextLabel = retry ? 'Compare with the optimal solution' : k < PUZZLES_PER_SET ? 'Next puzzle' : 'Back to sets';
   let area = null;
 
   function start() {
     area?.destroy();
     after.replaceChildren();
-    const log = createAttemptLog({ game: GAME_ID, set: setNo, puzzleId: puzzle.id, mode: 'practice', optimal: 1 });
+    const log = createAttemptLog({ game: GAME_ID, set: setNo, puzzleId: puzzle.id, mode: 'practice', source: retry ? 'review' : 'pool', optimal: 1 });
     area = createPlayArea(puzzle, { mode: 'practice', log, onDone: (s) => finish(s, log) });
     host.replaceChildren(area.root);
   }
@@ -514,6 +516,16 @@ async function renderPractice(ctx, setNo, k) {
   function finish(session, log) {
     const attempt = log.end(session.outcome(), { moves: session.submissions, hintsUsed: session.hintsUsed });
     recorder.saveAttempt(attempt);
+    if (retry) {
+      // Retrieval first: grade and reschedule now, compare with the optimal solution on the review page.
+      completeRetry(GAME_ID, attempt);
+      after.replaceChildren(
+        el('div', { class: 'after-actions' }, el('a', { class: 'btn btn-primary', href: nextHref }, nextLabel)),
+        coachHost(attempt, puzzle, cfg.paceSec),
+      );
+      after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
+      return;
+    }
     // Hinted solves still count, as in Block Slide; the coach flags them.
     store.recordPractice(GAME_ID, setNo, puzzle.id, session.efficiency());
     after.replaceChildren(
@@ -522,7 +534,7 @@ async function renderPractice(ctx, setNo, k) {
         el('a', { class: 'btn btn-primary', href: nextHref }, nextLabel),
       ),
       coachHost(attempt, puzzle, cfg.paceSec),
-      createExplainPanel(puzzle, { status: session.status, submissions: session.submissions, mode: 'practice' }),
+      trackExplain(createExplainPanel(puzzle, { status: session.status, submissions: session.submissions, mode: 'practice' }), attempt),
     );
     after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
     after.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
@@ -531,12 +543,12 @@ async function renderPractice(ctx, setNo, k) {
   root.append(
     el('div', { class: 'page-head play-head' },
       el('p', { class: 'crumbs' }, el('a', { href: `#/${GAME_ID}` }, 'Operator Switch'), ` / Set ${setNo}: ${cfg.name}`),
-      el('h1', {}, `Practice: puzzle ${k} of ${PUZZLES_PER_SET}`),
+      el('h1', {}, retry ? 'Review: solve it again before you look' : `Practice: puzzle ${k} of ${PUZZLES_PER_SET}`),
       el('p', { class: 'muted' }, `Suggested pace: about ${cfg.paceSec} s. No clock in practice mode.`),
     ),
     host,
     after,
-    el('div', { class: 'after-actions' }, prevLink, el('a', { class: 'btn btn-quiet', href: nextHref }, nextLabel)),
+    el('div', { class: 'after-actions' }, prevLink, el('a', { class: 'btn btn-quiet', href: nextHref }, retry ? 'Back to the review' : nextLabel)),
   );
   start();
   ctx.onDispose(() => area?.destroy());
@@ -746,6 +758,7 @@ async function renderRun(ctx, setNo) {
     const puzzlesById = new Map(results.map((r) => [r.puzzle.id, r.puzzle]));
     const history = recorder.attempts({ game: GAME_ID, set: setNo });
     const runCoach = coachRun(run, results.map((r) => r.attempt), puzzlesById, { paceSec: cfg.paceSec, budgetMs: RUN_MS, history });
+    noteRun(GAME_ID, run, results.map((r) => r.attempt), runCoach.perPuzzle, puzzlesById);
     const errorByPuzzle = new Map(runCoach.errors.map((e) => [e.puzzle, e.label]));
     const correct = results.filter((r) => r.status === 'correct').length;
     const answered = results.filter((r) => r.status === 'correct' || r.status === 'wrong').length;
@@ -769,7 +782,7 @@ async function renderRun(ctx, setNo) {
                 el('h3', { text: `Puzzle ${r.index + 1}${r.source === 'generated' ? ' (freshly generated)' : ''}` }),
                 createPlayAreaSnapshot(r.puzzle, r.attempt),
                 coachHost(r.attempt, r.puzzle, cfg.paceSec),
-                createExplainPanel(r.puzzle, { status: r.status, submissions: m.grossMoves, mode: 'exam' }),
+                trackExplain(createExplainPanel(r.puzzle, { status: r.status, submissions: m.grossMoves, mode: 'exam' }), r.attempt),
               );
               review.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
             },
@@ -841,6 +854,22 @@ function createPlayAreaSnapshot(puzzle, attempt) {
   );
 }
 
+// ---------------------------------------------------------------- review library hooks
+
+function renderRetry(ctx) {
+  const r = peekRetry(GAME_ID);
+  if (!r?.puzzle) {
+    ctx.root.append(el('p', { class: 'notice' }, 'No review puzzle is waiting. ', el('a', { href: '#/review/operatorswitch' }, 'Open the Operator Switch review library')));
+    return null;
+  }
+  return renderPractice(ctx, r.set, 0, r);
+}
+
+// Watch mode on the review page: the worked solution, with the original result line.
+export function reviewWalkthrough(puzzle, attempt) {
+  return createExplainPanel(puzzle, { status: attemptResult(attempt), submissions: attempt.metrics?.grossMoves ?? 0, mode: attempt.mode });
+}
+
 // ---------------------------------------------------------------- entry
 
 export async function mountOperatorSwitch(main, args = []) {
@@ -873,6 +902,7 @@ export async function mountOperatorSwitch(main, args = []) {
       if (!mode) renderMenu(ctx);
       else if (mode === 'practice') await renderPractice(ctx, Number(a), Number(b) || 1);
       else if (mode === 'run') await renderRun(ctx, Number(a));
+      else if (mode === 'retry') await renderRetry(ctx);
       else root.append(el('p', { class: 'notice' }, 'Unknown page. ', el('a', { href: `#/${GAME_ID}` }, 'Back to Operator Switch')));
     } catch (err) {
       console.error(err);

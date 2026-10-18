@@ -10,6 +10,8 @@ import {
   summaryLines, dayStreak, sampleData,
 } from './analytics.js';
 import { pct } from './score.js';
+import { learnStore } from './learn-hooks.js';
+import { loadContext, tierChip, deltaText, table as nodeTable, gameName } from './learn-ui.js';
 
 const SETS = [1, 2, 3, 4, 5];
 const fmtSec = (ms) => (Number.isFinite(ms) ? `${(ms / 1000).toFixed(1)} s` : '');
@@ -36,6 +38,7 @@ export function mountAnalytics(main) {
       ),
     );
     if (recorder.problem) root.append(el('p', { class: 'callout callout-warn', text: recorder.problem }));
+    if (!state.sample) root.append(learningSection());
 
     if (empty || state.sample) {
       const toggle = el('input', {
@@ -223,12 +226,13 @@ function backupSection(recorder, store, redraw) {
       const f = e.target.files?.[0];
       if (!f) return;
       try {
-        const { recorder: arch, progress } = parseBackup(await f.text());
+        const { recorder: arch, progress, learn } = parseBackup(await f.text());
         const res = recorder.importData(arch);
         if (progress) store.mergeData(progress);
+        const lres = learn ? learnStore().importData(learn) : null;
         redraw();
         document.getElementById('backup-status')?.replaceChildren(
-          `Imported ${res.added} records${res.skipped ? `, ${res.skipped} already present` : ''}${res.dropped ? `, ${res.dropped} unreadable and ignored` : ''}${progress ? ', progress merged' : ''}.`);
+          `Imported ${res.added} records${res.skipped ? `, ${res.skipped} already present` : ''}${res.dropped ? `, ${res.dropped} unreadable and ignored` : ''}${progress ? ', progress merged' : ''}${lres ? `, ${lres.added} review entries added` : ''}.`);
       } catch (err) {
         status.textContent = `Import failed: ${err.message}.`;
       }
@@ -238,13 +242,13 @@ function backupSection(recorder, store, redraw) {
   status.id = 'backup-status';
   return el('section', { class: 'backup' },
     el('h2', { class: 'section-title', text: 'Backup' }),
-    el('p', { class: 'muted', text: 'Your history lives only in this browser. Export a JSON backup to keep it or move it to another device; import merges a backup into what is here (nothing is overwritten).' }),
+    el('p', { class: 'muted', text: 'Your history lives only in this browser. Export a JSON backup to keep it or move it to another device; it includes the review notebook, notes and report snapshots. Import merges a backup into what is here (nothing is overwritten).' }),
     el('div', { class: 'after-actions' },
       el('button', {
         type: 'button',
         class: 'btn',
         onclick: () => {
-          const backup = makeBackup({ recorder: recorder.exportData(), progress: store.get() });
+          const backup = makeBackup({ recorder: recorder.exportData(), progress: store.get(), learn: learnStore().exportData() });
           const blob = new Blob([JSON.stringify(backup, null, 1)], { type: 'application/json' });
           const a = el('a', { href: URL.createObjectURL(blob), download: `cogprep-backup-${new Date().toISOString().slice(0, 10)}.json` });
           document.body.append(a);
@@ -272,3 +276,31 @@ function backupSection(recorder, store, redraw) {
     status,
   );
 }
+
+// Per-game learning overview: skill score, reports and the review library.
+function learningSection() {
+  let ctx;
+  try {
+    ctx = loadContext();
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+  const totalDue = Object.values(ctx.due).reduce((a, b) => a + b, 0);
+  return el('section', { class: 'learn-overview', 'aria-labelledby': 'learn-h' },
+    el('h2', { id: 'learn-h', class: 'section-title', text: 'Learning: reports and review' }),
+    el('div', { class: 'toolbar' },
+      tierChip(ctx.skill),
+      el('a', { class: `btn${totalDue ? ' btn-primary' : ''}`, href: '#/review/today' }, `Today's review queue (${totalDue} due)`),
+      el('a', { class: 'btn', href: '#/achievements' }, 'Achievements')),
+    nodeTable('Learning per game', ['Game', 'Skill score', 'n', '14-day change', 'Report', 'Review'],
+      ctx.skill.cards.map((c) => [
+        `${gameName(c.game)}${c.stale ? ' (stale)' : ''}`,
+        c.n ? `${Math.round(c.score)} ${c.tier}` : 'not played',
+        String(c.n),
+        deltaText(c.delta, Math.min(c.n, c.pastN)),
+        el('a', { href: `#/report/${c.game}` }, 'Open report'),
+        el('a', { href: `#/review/${c.game}` }, ctx.due[c.game] ? `${ctx.due[c.game]} due` : 'Notebook'),
+      ])));
+}
+

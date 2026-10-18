@@ -111,6 +111,29 @@ for two or more series, a crosshair tooltip (pointer or arrow keys) and a data t
   and per-set progress (attempts, practice puzzles played, runs, first 3 against last 3 runs).
 * Empty state: a "Show sample data" toggle loads a seeded sample history, marked SAMPLE DATA on the page.
 
+## Learning layer
+
+Design spec: `docs/learning-spec.md`. Everything stays in the browser under the localStorage key `cogprep.learn.v1`
+(`js/core/learn-store.js`, versioned with migrations), and it is included in the JSON backup (backup format v2; v1 files still import).
+
+* Routes: `#/achievements`, `#/report/<game>` (`?print=1` for the A4 print view), `#/report/<game>/snapshot/<id>`,
+  `#/review/<game>` (`?filter=<coach tag>`), `#/review/<game>/<attemptId>`, `#/review/today`, and `#/<game>/retry` (the
+  game's practice view playing a puzzle handed over by the review library).
+* Achievements (`js/core/achievements.js`, pure): 24 rules from spec A, each with progress 0 to 1 and a hint, cached with
+  an input stamp, unlocks kept for good. Skill (`js/core/skill.js`, pure): Game Skill Score, overall badge, 14-day delta,
+  stale marker; trends need n of 5 or more.
+* Review library: failed or under-70% attempts become notebook items automatically (`js/core/notebook.js`), scheduled by
+  SM-2 lite on 1, 3, 7, 14, 30 days (`js/core/srs.js`), capped at 100 per game and 600 in total. Items store a seed
+  reference, never a board: each game's `review.js` adapter rebuilds the puzzle from its id or seed (run variants from
+  the run seed or a small permutation; slow expert puzzles and lost-run variants keep a compact encoding of at most 1800
+  characters) and checks a checksum so a changed generator is flagged, not silently replayed.
+* Hooks in each `play.js` (`js/core/learn-hooks.js`): coach "fix" finding ids saved per attempt as stable tags, the live
+  puzzle used for the seed reference, walkthrough views logged, and retries graded on finish.
+* Reports (`js/core/report-data.js`, pure; `report-page.js`, `report-sections.js`, `learn-charts.js`): header, skill
+  breakdown with sparklines, weekly coach-tag trend, pace against par, weak puzzle features (n of 5 or more), three
+  prescriptions, the static strategy cheat sheet (`js/games/<game>/strategy.js`), snapshots (weekly and on demand, 26 per
+  game, diff any two), print view and standalone HTML export.
+
 ## Layout
 
 ```

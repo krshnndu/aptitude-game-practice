@@ -13,6 +13,8 @@ import { analyse, explainPuzzle, wrongPickReason, resultSummary, STRATEGY, symNa
 import { SET_CONFIGS, PUZZLES_PER_SET } from './gen.js';
 import { createRunStream, TUTORIAL_PUZZLE } from './stream.js';
 import { coachPuzzle, coachRun } from './coach.js';
+import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry } from '../../core/learn-hooks.js';
+import { effectiveOutcome } from './coach.js';
 
 const GAME_ID = 'latinsquare';
 const RUN_MS = 6 * 60 * 1000;
@@ -492,6 +494,7 @@ function coachHost(attempt, puzzle, paceSec) {
   );
   try {
     const res = coachPuzzle(attempt, puzzle, { history: recorder.attempts({ game: GAME_ID, set: attempt.set }), paceSec });
+    noteAttempt(GAME_ID, attempt, res.findings, puzzle);
     host.append(res.findings.length
       ? el('ul', { class: 'findings', role: 'list' }, res.findings.map(findingItem))
       : el('p', { class: 'muted', text: 'Nothing to flag on this puzzle.' }));
@@ -597,29 +600,29 @@ function lockedNotice(root, setNo) {
 
 // ---------------------------------------------------------------- practice
 
-async function renderPractice(ctx, setNo, k) {
+// retry: a puzzle handed over by the review library (any set or source), played blind.
+async function renderPractice(ctx, setNo, k, retry = null) {
   const { root } = ctx;
   const cfg = SET_CONFIGS.find((c) => c.set === setNo);
-  if (!cfg || !(k >= 1 && k <= PUZZLES_PER_SET)) {
+  if (!cfg || (!retry && !(k >= 1 && k <= PUZZLES_PER_SET))) {
     root.append(el('p', { class: 'notice' }, 'Unknown puzzle. ', el('a', { href: '#/latinsquare' }, 'Back to sets')));
     return;
   }
-  if (!isUnlocked(setNo)) return lockedNotice(root, setNo);
-  const data = await loadSet(setNo);
-  const puzzle = data.puzzles[k - 1];
+  if (!retry && !isUnlocked(setNo)) return lockedNotice(root, setNo);
+  const puzzle = retry ? retry.puzzle : (await loadSet(setNo)).puzzles[k - 1];
   const targets = puzzle.targets.length;
 
   const after = el('div', { class: 'after' });
-  const prevLink = k > 1 ? el('a', { class: 'btn btn-quiet', href: `#/latinsquare/practice/${setNo}/${k - 1}` }, 'Previous puzzle') : null;
-  const nextHref = k < PUZZLES_PER_SET ? `#/latinsquare/practice/${setNo}/${k + 1}` : '#/latinsquare';
-  const nextLabel = k < PUZZLES_PER_SET ? 'Next puzzle' : 'Back to sets';
+  const prevLink = !retry && k > 1 ? el('a', { class: 'btn btn-quiet', href: `#/latinsquare/practice/${setNo}/${k - 1}` }, 'Previous puzzle') : null;
+  const nextHref = retry ? retry.returnHash : k < PUZZLES_PER_SET ? `#/latinsquare/practice/${setNo}/${k + 1}` : '#/latinsquare';
+  const nextLabel = retry ? 'Compare with the optimal solution' : k < PUZZLES_PER_SET ? 'Next puzzle' : 'Back to sets';
   let area = null;
   const host = el('div', {});
 
   function start() {
     area?.destroy();
     after.replaceChildren();
-    const log = createAttemptLog({ game: GAME_ID, set: setNo, puzzleId: puzzle.id, mode: 'practice', optimal: targets });
+    const log = createAttemptLog({ game: GAME_ID, set: setNo, puzzleId: puzzle.id, mode: 'practice', source: retry ? 'review' : 'pool', optimal: targets });
     area = createPlayArea(puzzle, { mode: 'practice', log, onDone: (game, { hintsUsed }) => finish(game, hintsUsed, log) });
     host.replaceChildren(area.root);
     area.focus();
@@ -630,6 +633,16 @@ async function renderPractice(ctx, setNo, k) {
     const eff = efficiency(targets, game.pickCount, solved);
     const attempt = log.end(recorderOutcome(game.status), { moves: game.pickCount, hintsUsed });
     recorder.saveAttempt(attempt);
+    if (retry) {
+      // Retrieval first: grade and reschedule now, compare with the optimal solution on the review page.
+      completeRetry(GAME_ID, attempt);
+      after.replaceChildren(
+        el('div', { class: 'after-actions' }, el('a', { class: 'btn btn-primary', href: nextHref }, nextLabel)),
+        coachHost(attempt, puzzle, cfg.paceSec),
+      );
+      after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
+      return;
+    }
     store.recordPractice(GAME_ID, setNo, puzzle.id, eff);
     after.replaceChildren(
       el('div', { class: 'after-actions' },
@@ -637,7 +650,7 @@ async function renderPractice(ctx, setNo, k) {
         el('a', { class: 'btn btn-primary', href: nextHref }, nextLabel),
       ),
       coachHost(attempt, puzzle, cfg.paceSec),
-      createExplainPanel(puzzle, { outcome: game.status, eff, text: resultSummary({ outcome: game.status, picks: game.pickCount, targets }) }),
+      trackExplain(createExplainPanel(puzzle, { outcome: game.status, eff, text: resultSummary({ outcome: game.status, picks: game.pickCount, targets }) }), attempt),
     );
     after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
     after.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
@@ -646,12 +659,12 @@ async function renderPractice(ctx, setNo, k) {
   root.append(
     el('div', { class: 'page-head play-head' },
       el('p', { class: 'crumbs' }, el('a', { href: '#/latinsquare' }, 'Latin Square'), ` / Set ${setNo}: ${cfg.name}`),
-      el('h1', {}, `Practice: puzzle ${k} of ${PUZZLES_PER_SET}`),
+      el('h1', {}, retry ? 'Review: solve it again before you look' : `Practice: puzzle ${k} of ${PUZZLES_PER_SET}`),
       el('p', { class: 'muted' }, `Every symbol once per row and column. Suggested pace: about ${cfg.paceSec} s. No clock in practice mode.`),
     ),
     host,
     after,
-    el('div', { class: 'after-actions' }, prevLink, el('a', { class: 'btn btn-quiet', href: nextHref }, nextLabel)),
+    el('div', { class: 'after-actions' }, prevLink, el('a', { class: 'btn btn-quiet', href: nextHref }, retry ? 'Back to the review' : nextLabel)),
   );
   start();
   ctx.onDispose(() => area?.destroy());
@@ -853,6 +866,7 @@ async function renderRun(ctx, setNo) {
     const puzzlesById = new Map(results.map((r) => [r.puzzle.id, r.puzzle]));
     const history = recorder.attempts({ game: GAME_ID, set: setNo });
     const runCoach = coachRun(run, results.map((r) => r.attempt), puzzlesById, { paceSec: cfg.paceSec, budgetMs: RUN_MS, history });
+    noteRun(GAME_ID, run, results.map((r) => r.attempt), runCoach.perPuzzle, puzzlesById);
     const answered = results.filter((r) => r.status === 'solved' || r.status === 'wrong').length;
     const right = results.filter((r) => r.status === 'solved').length;
     const minutes = Math.max(1, run.durationMs) / 60000;
@@ -886,11 +900,11 @@ async function renderRun(ctx, setNo) {
               review.replaceChildren(
                 el('h3', { text: `Puzzle ${r.index + 1}${r.source === 'pool' ? '' : r.source === 'generated' ? ' (freshly generated)' : ' (reshuffled variant)'}` }),
                 coachHost(r.attempt, r.puzzle, cfg.paceSec),
-                createExplainPanel(r.puzzle, {
+                trackExplain(createExplainPanel(r.puzzle, {
                   outcome: r.status,
                   eff: r.status === 'solved' ? 1 : 0,
                   text: r.status === 'solved' ? 'Right: +1 point.' : r.status === 'wrong' ? `Wrong: -${(1 / (r.puzzle.n - 1)).toFixed(2)} points. You answered ${ans.yours}; the answer is ${ans.correct}.` : r.status === 'timeout' ? 'Time ran out on this puzzle.' : 'Skipped: 0 points.',
-                }),
+                }), r.attempt),
               );
               review.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
             },
@@ -944,6 +958,24 @@ async function renderRun(ctx, setNo) {
   }
 }
 
+// ---------------------------------------------------------------- review library hooks
+
+function renderRetry(ctx) {
+  const r = peekRetry(GAME_ID);
+  if (!r?.puzzle) {
+    ctx.root.append(el('p', { class: 'notice' }, 'No review puzzle is waiting. ', el('a', { href: '#/review/latinsquare' }, 'Open the Latin Square review library')));
+    return null;
+  }
+  return renderPractice(ctx, r.set, 0, r);
+}
+
+// Watch mode on the review page: the worked solution, with the original result line.
+export function reviewWalkthrough(puzzle, attempt) {
+  const outcome = effectiveOutcome(attempt, parsePuzzle(puzzle));
+  const words = { solved: 'Your original attempt was right.', wrong: 'Your original attempt was wrong.', skipped: 'You skipped this puzzle.', timeout: 'Time ran out on this puzzle.' };
+  return createExplainPanel(puzzle, { outcome, eff: attempt.metrics?.efficiency ?? 0, text: words[outcome] ?? '' });
+}
+
 // ---------------------------------------------------------------- entry
 
 export async function mountLatinSquare(main, args = []) {
@@ -975,6 +1007,7 @@ export async function mountLatinSquare(main, args = []) {
       if (!mode) renderMenu(ctx);
       else if (mode === 'practice') await renderPractice(ctx, Number(a), Number(b) || 1);
       else if (mode === 'run') await renderRun(ctx, Number(a));
+      else if (mode === 'retry') await renderRetry(ctx);
       else root.append(el('p', { class: 'notice' }, 'Unknown page. ', el('a', { href: '#/latinsquare' }, 'Back to Latin Square')));
     } catch (err) {
       console.error(err);
