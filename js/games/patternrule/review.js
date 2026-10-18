@@ -5,10 +5,11 @@
 import { SET_CONFIGS, generateFresh } from './gen.js';
 import { coachPuzzle, HABITS } from './coach.js';
 import { explainPuzzle } from './explain.js';
-import { letter, attemptPicks } from './state.js';
-import { panelKey, atom } from './rules.js';
+import { letter, attemptPicks, attemptResult } from './state.js';
+import { panelKey, atom, listAnd } from './rules.js';
 import { checksumOf, seedFromId, splitVariant, fixIds } from '../../core/learn-util.js';
 import { accuracyDim, firstMoveDim, tagDim } from '../../core/dims.js';
+import { cleanCode, firstDivergence } from '../../core/dvs.js';
 
 export const GAME_ID = 'patternrule';
 export const GENERATOR_VERSION = 1;
@@ -135,6 +136,59 @@ export function divergence(attempt, puzzle) {
 export function optimalSteps(puzzle) {
   const ex = explainPuzzle(puzzle);
   return [...ex.steps, ...ex.verdicts.map((v) => `${v.letter}: ${v.summary}`)];
+}
+
+// Did vs should, per candidate: picked or not against fits or not. ans / opt are the picked and the
+// fitting candidate letters in order (e.g. "BD"). lat: ms of the last action on the first wrong
+// candidate, or the last event time when every candidate is right (0 with no events).
+export function didVsShould(attempt, puzzle) {
+  const ex = explainPuzzle(puzzle);
+  const events = Array.isArray(attempt?.events) ? attempt.events : [];
+  const result = attemptResult(attempt ?? {});
+  // Without events the picks are unknown: a correct result implies the fitting set was picked.
+  const picks = events.length ? attemptPicks(attempt) : result === 'correct' ? puzzle.answer.slice().sort((a, b) => a - b) : [];
+  const chosen = new Set(picks);
+  const key = new Set(puzzle.answer);
+  const rows = puzzle.candidates.map((_, i) => {
+    const picked = chosen.has(i), fits = key.has(i);
+    return { did: `${picked ? 'Picked' : 'Left out'} ${letter(i)}`, should: `${letter(i)} ${fits ? 'fits' : 'does not fit'}`, ok: picked === fits };
+  });
+  const div = firstDivergence(rows);
+  const lastT = events.length ? Math.max(0, Math.round(Number(events[events.length - 1].t) || 0)) : 0;
+  let lat = lastT;
+  if (div >= 0) {
+    const touches = events.filter((e) => e.type === 'move' && e.p === div);
+    if (touches.length) lat = Math.max(0, Math.round(Number(touches[touches.length - 1].t) || 0));
+  }
+  const rule = /[.!?]$/.test(ex.rule) ? ex.rule : `${ex.rule}.`;
+  const L = div >= 0 ? letter(div) : '';
+  let note;
+  if (div < 0) {
+    note = `Matched: ${listAnd(puzzle.answer.map(letter))} ${puzzle.answer.length === 1 ? 'is the only candidate that fits' : 'are exactly the candidates that fit'}. The rule: ${rule}`;
+  } else if (!events.length) {
+    note = `No picks were recorded. ${listAnd(puzzle.answer.map(letter))} ${puzzle.answer.length === 1 ? 'fits' : 'fit'}. The rule: ${rule}`;
+  } else {
+    const v = ex.verdicts[div];
+    const fits = key.has(div);
+    const reasons = (fits ? v.parts : v.parts.filter((p) => !p.holds)).map((p) => p.text);
+    note = `You ${chosen.has(div) ? 'picked' : 'left out'} ${L}, which ${fits ? 'fits' : 'does not fit'}: ${listAnd(reasons)}. The rule: ${rule}`;
+  }
+  return {
+    rows,
+    div,
+    note,
+    ans: cleanCode(picks.map(letter).join('')),
+    opt: cleanCode(puzzle.answer.slice().sort((a, b) => a - b).map(letter).join('')),
+    lat,
+  };
+}
+
+// Readable text for an ans / opt code from didVsShould ("BD" -> "candidates B and D").
+export function formatCode(code) {
+  const s = String(code ?? '');
+  if (!s) return 'nothing';
+  if (/^[A-Z]+$/.test(s)) return s.length === 1 ? `candidate ${s}` : `candidates ${listAnd(s.split(''))}`;
+  return s;
 }
 
 export const timeOf = (a) => a.metrics?.totalMs ?? 0;

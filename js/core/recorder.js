@@ -3,7 +3,8 @@
 //
 // Attempt record:
 //   { id, game, set, puzzleId, mode: 'practice'|'exam', runId, source, startedAt, optimal,
-//     outcome: 'solved'|'skipped'|'timeout', moves, hintsUsed, events, metrics }
+//     outcome: 'solved'|'skipped'|'timeout', moves, hintsUsed, events, metrics, dvs? }
+// dvs: compact did vs should codes { ans, opt, div, lat }, see dvs.js.
 // events: [{ t, type, p?, d? }], t in ms since the attempt started. Types:
 //   select (p, or null to clear), move (p, d), blocked (p, d: a move the board refused),
 //   undo, reset, hint, and one closing event: solve | skip | timeout.
@@ -15,6 +16,7 @@
 
 import { efficiency } from './score.js';
 import { memoryStorage, defaultStorage } from './store.js';
+import { sanitizeDvs } from './dvs.js';
 
 export const RECORDER_KEY = 'cogprep.attempts.v1';
 export const RECORDER_VERSION = 1;
@@ -214,6 +216,8 @@ export function sanitizeAttempt(a) {
     ? computeMetrics(events, { optimal: out.optimal, moves: out.moves, outcome: out.outcome })
     : { ...a.metrics };
   if (a.eventsPruned) out.eventsPruned = true;
+  const dvs = sanitizeDvs(a.dvs);
+  if (dvs) out.dvs = dvs;
   out.moves = out.metrics.moves;
   return out;
 }

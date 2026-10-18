@@ -5,9 +5,10 @@ import { SET_CONFIGS } from './gen.js';
 import { generateFresh, variantPuzzle, freshSeed } from './stream.js';
 import { coachPuzzle, readPicks, HABITS } from './coach.js';
 import { analyse, explainPuzzle, symName } from './explain.js';
-import { cellLabel } from './state.js';
+import { cellLabel, SYMBOLS } from './state.js';
 import { checksumOf, seedFromId, splitVariant, fixIds, makeBlob, readBlob } from '../../core/learn-util.js';
 import { accuracyDim, efficiencyDim, firstMoveDim, tagDim } from '../../core/dims.js';
+import { alignRows, firstDivergence, cleanCode } from '../../core/dvs.js';
 
 export const GAME_ID = 'latinsquare';
 export const GENERATOR_VERSION = 1;
@@ -96,6 +97,51 @@ export function divergence(attempt, puzzle) {
   if (i < 0) return null;
   const k = picks[i];
   return { index: i, text: `Pick ${i + 1}: ${symName(A.P, k.sym)} at ${cellLabel(A.P.n, k.cell)} was wrong. ${k.reason?.text ?? ''}`.trim() };
+}
+
+// Did vs should. rows: one per target cell in target order, did = the first symbol entered there
+// (with any retries after it), should = the stored answer. ans / opt: one letter per target (the
+// symbol letter, '.' for no entry), e.g. "HH" for two hearts. lat: ms of the first wrong entry, or the
+// last event's time when every answer matched (or the attempt had no entry there).
+export function didVsShould(attempt, puzzle) {
+  const A = analyse(puzzle);
+  const { P } = A;
+  const ex = explainPuzzle(puzzle, A);
+  const picks = readPicks(attempt ?? { events: [] }, A);
+  const firstAt = P.targets.map((_, t) => picks.find((k) => k.target === t) ?? null);
+  const cellSym = (cell, sym) => ({ cell, sym });
+  const didList = firstAt.map((k, t) => (k ? cellSym(P.targets[t], k.sym) : null));
+  const shouldList = P.targets.map((cell, t) => cellSym(cell, P.answers[t]));
+  const text = (x) => (x ? `${cellLabel(P.n, x.cell)} ${symName(P, x.sym)}` : '');
+  const rows = alignRows(didList, shouldList, (a, b) => !!a && a.sym === b.sym, text);
+  const div = firstDivergence(rows);
+  const ans = cleanCode(firstAt.map((k) => (k ? P.symbols[k.sym].letter : '.')).join(''));
+  const opt = cleanCode(P.answers.map((v) => P.symbols[v].letter).join(''));
+  const events = Array.isArray(attempt?.events) ? attempt.events : [];
+  const endMs = events.length ? events[events.length - 1].t : (attempt?.metrics?.totalMs ?? 0);
+  const lat = div >= 0 && firstAt[div] ? firstAt[div].t : endMs;
+  let note;
+  if (div < 0) {
+    note = `Every answer matched the deduction. ${ex.summary}`;
+  } else {
+    const k = firstAt[div];
+    const cell = P.targets[div];
+    const should = symName(P, P.answers[div]);
+    const wrong = rows.filter((r) => r.ok === false).length;
+    const first = k
+      ? `At ${cellLabel(P.n, cell)} you entered ${symName(P, k.sym)}, but the answer is ${should}.`
+      : `You gave no answer at ${cellLabel(P.n, cell)}; the answer is ${should}.`;
+    const step = ex.steps.find((s) => s.cell === cell);
+    const why = step ? step.text : (k?.reason?.text ?? '');
+    note = [first, why, wrong > 1 ? `${wrong - 1} other ${wrong - 1 === 1 ? 'answer was' : 'answers were'} also off.` : ''].filter(Boolean).join(' ');
+  }
+  return { rows, div, note, ans, opt, lat: Math.round(lat) };
+}
+
+// Readable text for an ans / opt code from didVsShould (letters are symbol letters, '.' is none).
+export function formatCode(code) {
+  const names = Object.fromEntries([...SYMBOLS.map((s) => [s.letter, s.name]), ['.', 'nothing']]);
+  return [...String(code ?? '')].map((ch) => names[ch] ?? ch).join(', ');
 }
 
 export const optimalSteps = (puzzle) => explainPuzzle(puzzle).steps.map((s) => s.text);

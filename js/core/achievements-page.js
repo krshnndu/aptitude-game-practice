@@ -5,6 +5,7 @@ import { el } from './dom.js';
 import { loadContext, achievementsFor, GAMES, FORMULA, pctText, fmtDate, deltaText } from './learn-ui.js';
 import { progressBar } from './learn-charts.js';
 import { MIN_N } from './skill.js';
+import { ev } from './board.js';
 
 const GROUP_ORDER = ['Learning', 'Mastery', 'Speed and accuracy', 'Reflection', 'Consistency'];
 
@@ -12,6 +13,8 @@ export function mountAchievements(main) {
   const ctx = loadContext();
   const { skill } = ctx;
   const { list, newly } = achievementsFor(ctx);
+  ev('ach_view', 'achievements', { n: list.filter((a) => a.unlocked).length, of: list.length });
+  for (const id of newly) ev('ach_unlock', 'achievements', { ach: String(id).slice(0, 24) });
   const root = el('div', { class: 'learn achievements' });
   main.append(root);
 

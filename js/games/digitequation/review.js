@@ -5,9 +5,10 @@
 import { SET_CONFIGS, generateFresh } from './gen.js';
 import { coachPuzzle, replayLog, HABITS } from './coach.js';
 import { explainPuzzle } from './explain.js';
-import { parsePuzzle, slotName, OPS } from './state.js';
+import { parsePuzzle, slotName, OPS, SLOT_LABELS, equationText, checkFill, fillUsesTray } from './state.js';
 import { checksumOf, seedFromId, splitVariant, fixIds, makeBlob, readBlob } from '../../core/learn-util.js';
 import { accuracyDim, efficiencyDim, firstMoveDim, tagDim } from '../../core/dims.js';
+import { firstDivergence } from '../../core/dvs.js';
 
 export const GAME_ID = 'digitequation';
 export const GENERATOR_VERSION = 1;
@@ -109,3 +110,60 @@ export const DIMS = [
   tagDim('guessing', 'Guessing or decoy tiles', ['guessing', 'decoy']),
   tagDim('wasted', 'Extra placements', ['wasted']),
 ];
+
+// ---------------------------------------------------------------- did vs should
+
+// Code: one character per blank in reading order, the digit or '_' for an empty blank (A=4, B=3,
+// C empty is "43_"). Built from the final fill and the answer only.
+const fillCode = (fill, n) => Array.from({ length: n }, (_, i) => (Number.isInteger(fill[i]) ? String(fill[i]) : '_')).join('');
+
+// Readable form of a code: "43_" -> "A=4, B=3, C empty".
+export function formatCode(code) {
+  const s = String(code ?? '');
+  if (!/^[0-9_]+$/.test(s)) return s;
+  return [...s].map((ch, i) => `${SLOT_LABELS[i] ?? `#${i + 1}`}${ch === '_' ? ' empty' : `=${ch}`}`).join(', ');
+}
+
+// Rows per blank: your final digit against the answer digit. A true fill of the whole equation
+// counts as right everywhere (puzzles can have more than one answer). Divergence is the first
+// blank that is wrong or empty; lat is the time of the last tile placed there (or the attempt end).
+export function didVsShould(attempt, puzzle) {
+  const parsed = parsePuzzle(puzzle);
+  const n = parsed.slots.length;
+  const answer = puzzle.answer;
+  const events = Array.isArray(attempt?.events) ? attempt.events : [];
+  const total = Math.round(events.length ? events[events.length - 1].t : attempt?.metrics?.totalMs ?? 0);
+  const opt = fillCode(answer, n);
+  if (!events.length && (attempt?.eventsPruned || attempt?.outcome === 'solved')) {
+    const solved = attempt.outcome === 'solved';
+    return {
+      rows: [], div: -1, lat: total, ans: solved ? opt : '', opt,
+      note: solved ? `Solved. The moves were not kept for this attempt; the equation is ${equationText(parsed, answer, { brackets: false })}.`
+        : 'The moves were not kept for this attempt, so the blanks cannot be compared.',
+    };
+  }
+  const rep = replayLog(puzzle, events);
+  const fill = rep.fill;
+  const whole = checkFill(parsed, fill).true && fillUsesTray(fill, puzzle.tray);
+  const rows = parsed.slots.map((s, i) => {
+    const has = Number.isInteger(fill[i]);
+    return { did: has ? `${s.label} = ${fill[i]}` : `${s.label} empty`, should: `${s.label} = ${answer[i]}`, ok: whole || (has && fill[i] === answer[i]) };
+  });
+  const div = firstDivergence(rows);
+  const ans = fillCode(fill, n);
+  const eq = equationText(parsed, answer, { brackets: false });
+  if (div < 0) {
+    const mine = whole && ans !== opt ? ` Any true fill is accepted, and yours is ${equationText(parsed, fill, { brackets: false })}.` : '';
+    return { rows, div, note: `Every blank matches: ${eq}.${mine}`, ans, opt, lat: total };
+  }
+  const slot = parsed.slots[div];
+  const left = Number.isInteger(fill[div]) ? `you left ${fill[div]}` : 'you left it empty';
+  const step = explainPuzzle(puzzle).steps.find((st) => st.fixed.some((f) => f.slot === div));
+  const why = step ? step.text : `The equation is ${eq}.`;
+  const last = rep.placements.filter((pl) => pl.slot === div).pop();
+  return {
+    rows, div, ans, opt,
+    note: `Blank ${slot.label} should be ${answer[div]}, but ${left}. ${why}`,
+    lat: last ? Math.round(last.t) : total,
+  };
+}

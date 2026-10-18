@@ -1,7 +1,8 @@
 /* Learning layer: achievements, reports, review library, replay, print and export. */
 
 :root { --series-other: #a8a79e; }
-@media (prefers-color-scheme: dark) { :root { --series-other: #6b6a64; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --series-other: #6b6a64; } }
+:root[data-theme="dark"] { --series-other: #6b6a64; }
 
 .learn h1 { margin-bottom: 4px; }
 .learn-strip, .learn-overview .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 20px; }
@@ -125,3 +126,13 @@ p .tag-chip { display: inline-flex; margin: 0 4px 4px 0; cursor: default; }
 
 /* Standalone export */
 .export-doc main { max-width: 960px; margin: 0 auto; padding: 16px; }
+
+/* Did vs should: your steps next to the correct ones, first divergence highlighted */
+.dvs { margin: 12px 0 16px; }
+.dvs-title { margin: 0 0 6px; font-size: 1.05rem; }
+.dvs-table td:nth-child(2), .dvs-table td:nth-child(3) { width: 45%; }
+.dvs-table tr.dvs-off td:nth-child(2) { color: var(--warn); }
+.dvs-table tr.dvs-first { background: color-mix(in srgb, var(--warn) 16%, transparent); outline: 2px solid var(--warn); outline-offset: -2px; }
+.dvs-table tr.dvs-first .badge { margin-left: 6px; }
+.dvs-run details { border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 10px; margin: 6px 0; background: var(--card); }
+.dvs-run summary { cursor: pointer; font-weight: 600; }

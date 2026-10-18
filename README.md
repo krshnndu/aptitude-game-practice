@@ -133,6 +133,14 @@ Design spec: `docs/learning-spec.md`. Everything stays in the browser under the 
   breakdown with sparklines, weekly coach-tag trend, pace against par, weak puzzle features (n of 5 or more), three
   prescriptions, the static strategy cheat sheet (`js/games/<game>/strategy.js`), snapshots (weekly and on demand, 26 per
   game, diff any two), print view and standalone HTML export.
+* Did vs should (`js/core/dvs.js`, pure; `js/core/dvs-ui.js`): each game's `review.js` exports `didVsShould(attempt,
+  puzzle)` returning side-by-side rows (what you did, what was optimal or correct), the first divergence and a plain
+  note. Shown after every practice puzzle, per puzzle at the end of a timed run, in the replay Compare view, and as
+  "Did vs should: recent mistakes" on each report. Each attempt keeps compact codes `dvs: { ans, opt, div, lat }` (ASCII
+  game codes, divergence step, ms to divergence) in `cogprep.attempts.v1`; the item telemetry event carries the same
+  codes cut to 36 characters (the event stays under 512 bytes).
+* Telemetry for the learning pages (`ev()` in `board.js`): `ach_view`, `ach_unlock`, `report_view`, `review_open`,
+  `review_done`.
 
 ## Layout
 

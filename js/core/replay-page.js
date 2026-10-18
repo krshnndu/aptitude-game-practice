@@ -11,6 +11,8 @@ import { loadContext, fmtDate, pctText } from './learn-ui.js';
 import { attemptFromItem } from './notebook.js';
 import { setRetry, peekRetry } from './learn-hooks.js';
 import { isMastered } from './srs.js';
+import { dvsPanel } from './dvs-ui.js';
+import { ev } from './board.js';
 import { noteEditor, tagEditor } from './notebook-ui.js';
 import { reviewWalkthrough as bsWalk } from '../games/blockslide/play.js';
 import { reviewWalkthrough as lsWalk } from '../games/latinsquare/play.js';
@@ -114,6 +116,7 @@ export async function mountReplay(main, game, attemptId, query) {
     }
     const retry = peekRetry(game);
     const done = retry && retry.attemptId === attemptId && retry.doneAttemptId ? ctx.recorder.attempts({ id: retry.doneAttemptId })[0] ?? null : null;
+    ev('review_open', 'review', { game, kind: 'replay', done: !!done });
     if (done && item) setRevealed(item.id, false);
     let mode = done ? 'compare' : query.get('mode') || 'retry';
     const body = el('div', {});
@@ -167,6 +170,8 @@ export async function mountReplay(main, game, attemptId, query) {
           el('strong', { text: `Retry ${correctFor(game)(done) ? 'solved' : 'not solved'}${done.outcome === 'solved' ? ` at ${pctText(done.metrics?.efficiency)} efficiency` : ''}. ` }),
           RESULT_TEXT[retry.result] ?? '') : null,
         div ? el('p', { class: 'callout callout-warn' }, el('strong', { text: 'Divergence point. ' }), div.text) : el('p', { class: 'callout callout-ok', text: 'Your original attempt never left the optimal path.' }),
+        dvsPanel(game, attempt, puzzle, { title: 'Did vs should (original attempt)' }),
+        done ? dvsPanel(game, done, puzzle, { title: 'Did vs should (your retry)' }) : null,
         el('div', { class: 'replay-panes' }, ...panes),
       ].filter(Boolean));
     }

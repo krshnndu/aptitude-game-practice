@@ -13,7 +13,8 @@ import { explainPuzzle, hintSteps, resultSummary, chainName } from './explain.js
 import { SET_CONFIGS, PUZZLES_PER_SET, GAME_ID, puzzleId } from './gen.js';
 import { createRunStream, TUTORIAL_PUZZLE } from './stream.js';
 import { coachPuzzle, coachRun, attemptResult } from './coach.js';
-import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry } from '../../core/learn-hooks.js';
+import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry, stampDvs } from '../../core/learn-hooks.js';
+import { dvsPanel, dvsRunSection } from '../../core/dvs-ui.js';
 
 const RUN_MS = 6 * 60 * 1000;
 const ARROW = '→';
@@ -309,7 +310,7 @@ function stepVisual(step) {
   );
 }
 
-function createExplainPanel(puzzle, result) {
+function createExplainPanel(puzzle, result, attempt = null) {
   const ex = explainPuzzle(puzzle);
   const status = result.status;
   const badge = status === 'correct'
@@ -321,6 +322,7 @@ function createExplainPanel(puzzle, result) {
       el('span', { class: `badge ${badge[0]}`, text: badge[1] }),
       el('p', { text: resultSummary({ status, submissions: result.submissions, options: puzzle.options.length, mode: result.mode }) }),
     ),
+    attempt ? dvsPanel(GAME_ID, attempt, puzzle) : null,
     el('p', { class: 'os-answer-line' }, el('strong', { text: `Answer: option ${puzzle.answer + 1}` }), `, ${answerText}.`),
     el('h3', { text: 'How to solve it: track digits, not shapes' }),
     el('ol', { class: 'os-steps' }, ex.steps.map((s) => el('li', {},
@@ -515,6 +517,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
 
   function finish(session, log) {
     const attempt = log.end(session.outcome(), { moves: session.submissions, hintsUsed: session.hintsUsed });
+    stampDvs(GAME_ID, attempt, puzzle);
     recorder.saveAttempt(attempt);
     if (retry) {
       // Retrieval first: grade and reschedule now, compare with the optimal solution on the review page.
@@ -534,7 +537,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
         el('a', { class: 'btn btn-primary', href: nextHref }, nextLabel),
       ),
       coachHost(attempt, puzzle, cfg.paceSec),
-      trackExplain(createExplainPanel(puzzle, { status: session.status, submissions: session.submissions, mode: 'practice' }), attempt),
+      trackExplain(createExplainPanel(puzzle, { status: session.status, submissions: session.submissions, mode: 'practice' }, attempt), attempt),
     );
     after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
     after.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
@@ -724,6 +727,7 @@ async function renderRun(ctx, setNo) {
     if (!current || current.done) return;
     current.done = true;
     const attempt = current.log.end(session.outcome(), { moves: session.submissions });
+    stampDvs(GAME_ID, attempt, current.puzzle);
     recorder.saveAttempt(attempt);
     const pts = session.examPoints();
     points += pts;
@@ -822,6 +826,7 @@ async function renderRun(ctx, setNo) {
             el('tbody', {}, rows),
           ),
         ),
+        dvsRunSection(GAME_ID, results.map((r) => ({ attempt: r.attempt, puzzle: r.puzzle }))),
         el('div', { class: 'after-actions' },
           el('button', { type: 'button', class: 'btn btn-primary', onclick: () => ctx.rerender() }, 'Run again'),
           el('a', { class: 'btn', href: '#/analytics' }, 'Progress and analytics'),

@@ -13,7 +13,8 @@ import { SET_CONFIGS, PUZZLES_PER_SET, GAP_MS, trialSeconds, puzzleId } from './
 import { createStaircase, createRunSource, tutorialTrial } from './stream.js';
 import { explainTrial, questionText, answerWord, OP_TEXT, STRATEGY, landmark } from './explain.js';
 import { coachTrial, coachRun } from './coach.js';
-import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry } from '../../core/learn-hooks.js';
+import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry, stampDvs } from '../../core/learn-hooks.js';
+import { dvsPanel, dvsRunSection } from '../../core/dvs-ui.js';
 import { reviewAttempt } from './coach.js';
 import { buildAttempt, GAME_ID } from './record.js';
 
@@ -715,12 +716,14 @@ async function renderPractice(ctx, setNo, k, retry = null) {
 
   function finish(trial) {
     const attempt = buildAttempt(trial, { set: setNo, mode: 'practice', source: retry ? 'review' : relaxedPractice ? 'relaxed' : 'pool', startedAt: startedAt || Date.now() });
+    stampDvs(GAME_ID, attempt, puzzle);
     recorder.saveAttempt(attempt);
     if (retry) {
       // Retrieval first: grade and reschedule now, compare with the optimal solution on the review page.
       completeRetry(GAME_ID, attempt);
       after.replaceChildren(
         el('div', { class: 'after-actions' }, el('a', { class: 'btn btn-primary', href: nextHref }, nextLabel)),
+        dvsPanel(GAME_ID, attempt, puzzle),
         coachHost(attempt, puzzle),
       );
       after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
@@ -732,6 +735,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
         el('button', { type: 'button', class: 'btn', onclick: () => start() }, 'Try again'),
         el('a', { class: 'btn btn-primary', href: nextHref }, nextLabel),
       ),
+      dvsPanel(GAME_ID, attempt, puzzle),
       coachHost(attempt, puzzle),
       trackExplain(createExplainPanel(puzzle, trial), attempt),
     );
@@ -904,6 +908,7 @@ async function renderRun(ctx, setNo) {
     if (!current || current.done) return;
     current.done = true;
     const attempt = buildAttempt(trial, { set: setNo, mode: 'exam', runId, source: current.source, startedAt: current.startedAt });
+    stampDvs(GAME_ID, attempt, current.puzzle);
     recorder.saveAttempt(attempt);
     const r = trial.result();
     results.push({ attempt, puzzle: current.puzzle, source: current.source, index: current.index, trial, result: r });
@@ -1005,6 +1010,7 @@ async function renderRun(ctx, setNo) {
             el('tbody', {}, rows),
           ),
         ),
+        dvsRunSection(GAME_ID, results.map((r) => ({ attempt: r.attempt, puzzle: r.puzzle }))),
         el('div', { class: 'after-actions' },
           el('button', { type: 'button', class: 'btn btn-primary', onclick: () => ctx.rerender() }, 'Run again'),
           el('a', { class: 'btn', href: '#/analytics' }, 'Progress and analytics'),

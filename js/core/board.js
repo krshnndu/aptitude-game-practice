@@ -2,6 +2,7 @@
 // tunnel URL can change without a code change. Failures are silent and retried later.
 import { el } from './dom.js';
 import { onRunSaved, onAttemptSaved } from './recorder.js';
+import { dvsTelemetry } from './dvs.js';
 
 const K_CID = 'cogprep.cid.v1', K_NICK = 'cogprep.nick.v1', K_Q = 'cogprep.queue.v1', K_CMP = 'cogprep.compare.v1';
 const ls = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* ignore */ } } };
@@ -138,6 +139,11 @@ export function track(page) {
   if (GAMES.includes(page)) ev('game_start', page, { game: page });
 }
 
+// Item event fields: outcome, time and the compact did vs should codes (no free text).
+export function itemExtra(a, rid, i) {
+  return { game: a.game, set: a.set, mode: a.mode, rid: String(rid).slice(0, 20), i, ms: Math.round((a.metrics && a.metrics.totalMs) || 0), ok: a.outcome === 'solved', skip: a.outcome === 'skipped', hint: (a.hintsUsed || 0) > 0, ...dvsTelemetry(a.dvs) };
+}
+
 let wired = false;
 export function startTelemetry() {
   if (wired || typeof window === 'undefined') return; wired = true;
@@ -147,7 +153,7 @@ export function startTelemetry() {
     if (activeRun && String(rid).slice(0, 20) === activeRun.rid) activeRun.items += 1;
     if (a.mode === 'exam' && !(rid in itemIdx)) ev('run_start', a.game, { game: a.game, set: a.set, mode: 'exam', rid: String(rid).slice(0, 20) });
     const i = itemIdx[rid] = (itemIdx[rid] || 0) + 1;
-    ev('item', a.game, { game: a.game, set: a.set, mode: a.mode, rid: String(rid).slice(0, 20), i, ms: Math.round((a.metrics && a.metrics.totalMs) || 0), ok: a.outcome === 'solved', skip: a.outcome === 'skipped', hint: (a.hintsUsed || 0) > 0 });
+    ev('item', a.game, itemExtra(a, rid, i));
   });
   onRunSaved((r) => { activeRun = null; lastEnd = Date.now(); ev('run_end', r.game, { game: r.game, set: r.set, mode: 'exam', rid: String(r.id).slice(0, 20), n: Math.round(r.attempted || 0), ms: Math.round(r.durationMs || 0) }); });
   addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && !leftPage) { leftPage = true; ev('leave', curPage, { dur: Math.min(Date.now() - pageT0, 14400000) }); } else if (document.visibilityState === 'visible' && leftPage) { leftPage = false; pageT0 = Date.now(); } });

@@ -8,6 +8,8 @@ import { ADAPTERS, correctFor } from './learn-registry.js';
 import { fixIds } from './learn-util.js';
 import { qualifies, makeItem, applyReview } from './notebook.js';
 import { dueItems } from './srs.js';
+import { dvsCodes } from './dvs.js';
+import { ev } from './board.js';
 
 let store = null;
 export function learnStore() {
@@ -26,6 +28,18 @@ function safe(fn) {
     console.error(err);
     return null;
   }
+}
+
+// Before an attempt is saved: keep the compact did vs should codes ({ ans, opt, div, lat }) with it,
+// so history views and item telemetry have them without rebuilding the puzzle.
+export function stampDvs(game, attempt, puzzle) {
+  return safe(() => {
+    if (!attempt || !puzzle) return null;
+    const fn = ADAPTERS[game]?.didVsShould;
+    const d = fn ? dvsCodes(fn(attempt, puzzle)) : null;
+    if (d) attempt.dvs = d;
+    return d;
+  });
 }
 
 // After the coach reviewed one attempt. opts: { run, base } for run variants (see adapters).
@@ -116,6 +130,7 @@ export function completeRetry(game, attempt, now = Date.now()) {
       s.addEvent({ t: now, type: 'queue_cleared', game });
       if (!dueItems(items, now).length) s.addEvent({ t: now, type: 'queue_cleared', game: 'all' });
     }
+    ev('review_done', game, { game, result, rf: !r.revealed, div: attempt.dvs ? attempt.dvs.div : -1 });
     pendingRetry = { ...r, doneAttemptId: attempt.id, result };
     safe(() => session()?.setItem(RETRY_KEY, JSON.stringify(pendingRetry)));
     return { result, item: next };

@@ -526,9 +526,9 @@ div.piece { cursor: default; }
 .tile-label { color: var(--muted); font-size: 0.85rem; }
 .tile strong { font-size: 1.5rem; }
 .table-wrap { overflow-x: auto; }
-.results { border-collapse: collapse; width: 100%; background: var(--card); border-radius: var(--radius); }
-.results th, .results td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; }
-.results th { font-size: 0.85rem; color: var(--muted); }
+.results, .dvs-table { border-collapse: collapse; width: 100%; background: var(--card); border-radius: var(--radius); }
+.results th, .results td, .dvs-table th, .dvs-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+.results th, .dvs-table th { font-size: 0.85rem; color: var(--muted); }
 .review-host { margin-top: 16px; }
 
 /* ------------------------------------------------ exam mode */

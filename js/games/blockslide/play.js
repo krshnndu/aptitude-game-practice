@@ -14,7 +14,8 @@ import { explainSolution, resultSummary, STRATEGY, pieceName, blockStyle, moveTe
 import { SET_CONFIGS, PUZZLES_PER_SET } from './gen.js';
 import { createRunStream, generateFresh, freshSeed, TUTORIAL_PUZZLE } from './stream.js';
 import { coachPuzzle, coachRun } from './coach.js';
-import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry } from '../../core/learn-hooks.js';
+import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry, stampDvs } from '../../core/learn-hooks.js';
+import { dvsPanel, dvsRunSection } from '../../core/dvs-ui.js';
 
 const GAME_ID = 'blockslide';
 const RUN_MS = 6 * 60 * 1000;
@@ -383,7 +384,7 @@ function createPlayArea(puzzle, opts) {
 
 // ---------------------------------------------------------------- solution replay
 
-function createExplainPanel(puzzle, result, ctx) {
+function createExplainPanel(puzzle, result, ctx, dvsNode = null) {
   const ex = explainSolution(puzzle);
   const view = createBoardView(ex.board, { small: true, label: 'Optimal solution replay' });
   let k = 0;
@@ -433,6 +434,7 @@ function createExplainPanel(puzzle, result, ctx) {
       el('span', { class: `badge ${result.solved ? (eff >= 1 ? 'badge-ok' : 'badge-mid') : 'badge-warn'}`, text: result.solved ? pct(eff) : 'Skipped' }),
       el('p', { text: resultSummary({ moves: result.moves, optimal: puzzle.optimal, solved: result.solved }) }),
     ),
+    dvsNode,
     el('h3', { text: 'Optimal solution' }),
     el('div', { class: 'explain-body' },
       el('div', { class: 'explain-board' }, view.root,
@@ -629,12 +631,14 @@ async function renderPractice(ctx, setNo, k, retry = null) {
     const solved = outcome === 'solved';
     const eff = efficiency(puzzle.optimal, game.moves, solved);
     const attempt = log.end(outcome, { moves: game.moves, hintsUsed });
+    stampDvs(GAME_ID, attempt, puzzle);
     recorder.saveAttempt(attempt);
     if (retry) {
       // Retrieval first: grade and reschedule now, compare with the optimal line on the review page.
       completeRetry(GAME_ID, attempt);
       after.replaceChildren(
         el('div', { class: 'after-actions' }, el('a', { class: 'btn btn-primary', href: nextHref }, nextLabel)),
+        dvsPanel(GAME_ID, attempt, puzzle),
         coachHost(attempt, puzzle, cfg.paceSec),
       );
       after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
@@ -648,7 +652,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
         el('a', { class: 'btn btn-primary', href: nextHref }, nextLabel),
       ),
       coachHost(attempt, puzzle, cfg.paceSec),
-      trackExplain(createExplainPanel(puzzle, { moves: game.moves, solved }, ctx), attempt),
+      trackExplain(createExplainPanel(puzzle, { moves: game.moves, solved }, ctx, dvsPanel(GAME_ID, attempt, puzzle)), attempt),
     );
     after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
     after.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
@@ -880,6 +884,7 @@ async function renderRun(ctx, setNo) {
     if (!current || current.done) return;
     current.done = true;
     const attempt = current.log.end(outcome, { moves: area.game.moves });
+    stampDvs(GAME_ID, attempt, current.puzzle);
     recorder.saveAttempt(attempt);
     results.push({ attempt, puzzle: current.puzzle, source: current.source, index: current.index });
   }
@@ -970,6 +975,7 @@ async function renderRun(ctx, setNo) {
             el('tbody', {}, rows),
           ),
         ),
+        dvsRunSection(GAME_ID, results.map((r) => ({ attempt: r.attempt, puzzle: r.puzzle }))),
         el('div', { class: 'after-actions' },
           el('button', { type: 'button', class: 'btn btn-primary', onclick: () => ctx.rerender() }, 'Run again'),
           el('a', { class: 'btn', href: '#/analytics' }, 'Progress and analytics'),

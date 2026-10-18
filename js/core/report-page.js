@@ -10,6 +10,8 @@ import { buildReport, fmtVal } from './report-data.js';
 import { makeSnapshot, weeklyDue, diffSnapshots } from './snapshots.js';
 import { headerSection, dimsSection, tagsSection, paceSection, weakSection, practiceSection, strategySection } from './report-sections.js';
 import { downloadReport } from './report-export.js';
+import { recentMistakes, codesNote } from './dvs.js';
+import { ev } from './board.js';
 
 const BACKFILL_MAX = 120;
 const GENERATED_MAX = 40;
@@ -99,6 +101,7 @@ export async function mountReport(main, rest, query) {
 
   const name = gameName(game);
   root.replaceChildren();
+  ev('report_view', 'report', { game, snap: sub === 'snapshot', print });
   if (sub === 'snapshot') {
     renderSnapshot(root, game, snaps.find((s) => s.id === snapId), report);
     return () => {};
@@ -122,6 +125,7 @@ export async function mountReport(main, rest, query) {
     paceSection(report),
     weakSection(report),
     practiceSection(report),
+    dvsSection(game, attempts, ad, print),
     print ? null : snapshotsSection(game, snaps, report, ctx),
     strategySection(SHEETS[game], topTags),
   );
@@ -136,6 +140,23 @@ export async function mountReport(main, rest, query) {
     };
   }
   return () => {};
+}
+
+// Did vs should: recent mistakes from the compact codes kept with each attempt (no rebuild needed).
+export function dvsSection(game, attempts, ad, print = false) {
+  const fmt = (c) => (ad.formatCode ? ad.formatCode(c) : c);
+  const list = recentMistakes(attempts, { game, limit: 10 });
+  const older = attempts.filter((a) => !a.dvs && a.outcome !== 'solved').length;
+  return el('section', { class: 'dvs-report', 'aria-labelledby': 'dvs-h' },
+    el('h2', { id: 'dvs-h', class: 'section-title', text: 'Did vs should: recent mistakes' }),
+    el('p', { class: 'muted small', text: 'What you answered next to the correct or optimal answer, the step where you first left it, and how long in that was. Open a replay for the full side-by-side walkthrough.' }),
+    list.length
+      ? table('Recent mistakes, did vs should', ['Date', 'Puzzle', 'You did', 'Should be', 'First divergence', 'Note', ''], list.map((a) => [
+        fmtDate(a.startedAt), `Set ${a.set}, ${a.puzzleId}`, fmt(a.dvs.ans) || 'nothing', fmt(a.dvs.opt), `step ${a.dvs.div + 1}, ${(a.dvs.lat / 1000).toFixed(1)} s`, codesNote(a.dvs, fmt),
+        print ? '' : el('a', { href: `#/review/${game}/${encodeURIComponent(a.id)}` }, 'Replay'),
+      ]))
+      : el('p', { class: 'callout callout-ok', text: 'No recorded mistakes yet. Every new attempt keeps its did vs should record.' }),
+    older ? el('p', { class: 'muted small', text: `${older} older ${older === 1 ? 'mistake was' : 'mistakes were'} played before this record existed; open them from the review library to compare.` }) : null);
 }
 
 function snapshotsSection(game, snaps, report, ctx) {

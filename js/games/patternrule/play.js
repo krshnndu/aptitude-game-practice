@@ -13,7 +13,8 @@ import { explainPuzzle, resultSummary, pickMarks, MARK_TEXT, STRATEGY } from './
 import { SET_CONFIGS, PUZZLES_PER_SET } from './gen.js';
 import { createRunStream, freshSource, tutorialPuzzle } from './stream.js';
 import { coachPuzzle, coachRun } from './coach.js';
-import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry } from '../../core/learn-hooks.js';
+import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry, stampDvs } from '../../core/learn-hooks.js';
+import { dvsPanel, dvsRunSection } from '../../core/dvs-ui.js';
 import { panelSvg, shapeIcon } from './render.js';
 import { describePanel, TYPES, TYPE_NAMES, FILLS, FILL_NAMES } from './rules.js';
 
@@ -264,7 +265,7 @@ function createBoard(puzzle, opts) {
 
 const VERDICT_BADGE = { rule: ['badge-ok', 'Part of the rule'], shared: ['badge-mid', 'Shared, not the rule'], varies: ['badge-soon', 'Varies: cross off'] };
 
-function createExplainPanel(puzzle, outcome) {
+function createExplainPanel(puzzle, outcome, attempt = null) {
   const ex = explainPuzzle(puzzle);
   const marks = outcome.picks ? pickMarks(puzzle, outcome.picks) : null;
   const status = outcome.status;
@@ -275,6 +276,7 @@ function createExplainPanel(puzzle, outcome) {
       el('span', { class: `badge ${badge[0]}`, text: badge[1] }),
       el('p', { text: resultSummary({ status, exact, falsePicks: outcome.falsePicks ?? [], misses: outcome.misses ?? [] }, puzzle) }),
     ),
+    attempt ? dvsPanel(GAME_ID, attempt, puzzle) : null,
     el('h3', { text: 'The rule' }),
     el('p', { class: 'pr-rule', text: ex.rule }),
     el('h3', { text: 'How to find it' }),
@@ -470,12 +472,14 @@ async function renderPractice(ctx, setNo, k, retry = null) {
     const out = outcomeOf(session);
     const result = session.status === 'skipped' ? 'skipped' : out.exact ? 'correct' : 'wrong';
     const attempt = log.end(result, { picks: session.picks, hintsUsed: session.hintsUsed });
+    stampDvs(GAME_ID, attempt, puzzle);
     recorder.saveAttempt(attempt);
     if (retry) {
       // Retrieval first: grade and reschedule now, compare with the optimal solution on the review page.
       completeRetry(GAME_ID, attempt);
       after.replaceChildren(
         el('div', { class: 'after-actions' }, el('a', { class: 'btn btn-primary', href: nextHref }, nextLabel)),
+        dvsPanel(GAME_ID, attempt, puzzle),
         coachPanel(attempt, puzzle, cfg.paceSec),
       );
       after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
@@ -487,7 +491,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
       el('div', { class: 'after-actions' },
         el('button', { type: 'button', class: 'btn', onclick: () => start() }, 'Try again'),
         el('a', { class: 'btn btn-primary', href: nextHref }, nextLabel)),
-      trackExplain(createExplainPanel(puzzle, out), attempt),
+      trackExplain(createExplainPanel(puzzle, out, attempt), attempt),
       coachPanel(attempt, puzzle, cfg.paceSec),
     );
     after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
@@ -671,6 +675,7 @@ async function renderRun(ctx, setNo) {
     if (!current || current.done) return;
     current.done = true;
     const attempt = current.log.end(result, { picks: board.session.picks });
+    stampDvs(GAME_ID, attempt, current.puzzle);
     recorder.saveAttempt(attempt);
     results.push({ attempt, puzzle: current.puzzle, source: current.source, index: current.index });
   }
@@ -756,6 +761,7 @@ async function renderRun(ctx, setNo) {
           el('caption', { class: 'sr-only', text: 'Results per puzzle' }),
           el('thead', {}, el('tr', {}, ['#', 'Result', 'Your picks', 'Answer', 'Time', 'First pick', 'Coach and explanation'].map((h) => el('th', { scope: 'col', text: h })))),
           el('tbody', {}, rows))),
+      dvsRunSection(GAME_ID, results.map((r) => ({ attempt: r.attempt, puzzle: r.puzzle }))),
       el('div', { class: 'after-actions' },
         el('button', { type: 'button', class: 'btn btn-primary', onclick: () => ctx.rerender() }, 'Run again'),
         el('a', { class: 'btn', href: '#/analytics' }, 'Progress and analytics'),

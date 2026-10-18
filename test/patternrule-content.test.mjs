@@ -58,7 +58,7 @@ test('play.js exports mountPatternRule and only touches allowed shared modules',
   assert.match(src, /export async function mountPatternRule\(main, args = \[\]\)/);
   assert.match(src, /css\/patternrule\.css/);
   const imports = [...src.matchAll(/from '([^']+)'/g)].map((m) => m[1]);
-  for (const i of imports) assert.ok(i.startsWith('./') || /^\.\.\/\.\.\/core\/(dom|timer|store|recorder|score|board|learn-hooks)\.js$/.test(i), i);
+  for (const i of imports) assert.ok(i.startsWith('./') || /^\.\.\/\.\.\/core\/(dom|timer|store|recorder|score|board|learn-hooks|dvs-ui)\.js$/.test(i), i);
 });
 
 test('pure modules load without a DOM', async () => {
