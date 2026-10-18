@@ -3,7 +3,14 @@
 
 import { el } from './dom.js';
 import { mountBlockSlide } from '../games/blockslide/play.js';
+import { mountLatinSquare } from '../games/latinsquare/play.js';
+import { mountGridMemory } from '../games/gridmemory/play.js';
+import { mountOperatorSwitch } from '../games/operatorswitch/play.js';
+import { mountDigitEquation } from '../games/digitequation/play.js';
+import { mountPatternRule } from '../games/patternrule/play.js';
 import { mountAnalytics } from './analytics-page.js';
+
+const MOUNTS = { blockslide: mountBlockSlide, latinsquare: mountLatinSquare, gridmemory: mountGridMemory, operatorswitch: mountOperatorSwitch, digitequation: mountDigitEquation, patternrule: mountPatternRule };
 
 export const GAMES = [
   {
@@ -18,30 +25,35 @@ export const GAMES = [
     name: 'Latin Square',
     skill: 'Deductive reasoning',
     blurb: 'Work out the hidden symbol from row and column rules: every symbol once per line.',
+    ready: true,
   },
   {
     id: 'gridmemory',
     name: 'Grid Memory',
     skill: 'Working memory, dual task',
     blurb: 'Remember positions on a grid while answering quick side questions in between.',
+    ready: true,
   },
   {
     id: 'operatorswitch',
     name: 'Operator Switch',
     skill: 'Numerical reasoning',
     blurb: 'Figure out which hidden operations turn the inputs into the outputs.',
+    ready: true,
   },
   {
     id: 'digitequation',
     name: 'Digit Equation',
     skill: 'Numerical reasoning',
     blurb: 'Pick the digits that make a short equation true, against the clock.',
+    ready: true,
   },
   {
     id: 'patternrule',
     name: 'Pattern Rule',
     skill: 'Inductive reasoning',
     blurb: 'Spot the rule that separates the shapes that fit from those that do not.',
+    ready: true,
   },
 ];
 
@@ -137,8 +149,8 @@ async function route() {
     if (!page) renderHome(main);
     else if (page === 'about') renderAbout(main);
     else if (page === 'analytics') cleanup = mountAnalytics(main);
-    else if (page === 'blockslide') {
-      const dispose = await mountBlockSlide(main, rest);
+    else if (MOUNTS[page]) {
+      const dispose = await MOUNTS[page](main, rest);
       // A newer navigation happened while loading: drop this view.
       if (token !== routeToken) dispose();
       else cleanup = dispose;
@@ -148,7 +160,7 @@ async function route() {
     console.error(err);
     main.replaceChildren(el('p', { class: 'notice' }, `Something went wrong: ${err.message}`));
   }
-  const titles = { blockslide: 'Block Slide', about: 'About', analytics: 'Progress and analytics' };
+  const titles = { blockslide: 'Block Slide', latinsquare: 'Latin Square', gridmemory: 'Grid Memory', operatorswitch: 'Operator Switch', digitequation: 'Digit Equation', patternrule: 'Pattern Rule', about: 'About', analytics: 'Progress and analytics' };
   document.title = `${titles[page] ?? 'Games'} | CogPrep Arcade`;
   window.scrollTo(0, 0);
 }

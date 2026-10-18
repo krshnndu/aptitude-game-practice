@@ -1,0 +1,578 @@
+{
+ "game": "gridmemory",
+ "version": 1,
+ "set": 3,
+ "name": "Switching tasks",
+ "n": 4,
+ "lengths": [
+  4,
+  5
+ ],
+ "kinds": [
+  "sym",
+  "parity"
+ ],
+ "showMs": 850,
+ "windowMs": 5000,
+ "seed": 3303,
+ "puzzles": [
+  {
+   "id": "gm3-01",
+   "n": 4,
+   "length": 4,
+   "sequence": [
+    13,
+    8,
+    5,
+    1
+   ],
+   "showMs": 850,
+   "windowMs": 5000,
+   "distractors": [
+    {
+     "kind": "parity",
+     "a": 12,
+     "op": "+",
+     "b": 5,
+     "answer": "odd"
+    },
+    {
+     "kind": "sym",
+     "rows": [
+      ".....",
+      "..#..",
+      "#####",
+      "#...#",
+      "....."
+     ],
+     "answer": "yes"
+    },
+    {
+     "kind": "sym",
+     "rows": [
+      ".#.##",
+      ".#.#.",
+      "##.##",
+      ".####",
+      "....."
+     ],
+     "answer": "no"
+    },
+    {
+     "kind": "parity",
+     "a": 19,
+     "op": "+",
+     "b": 13,
+     "answer": "even"
+    }
+   ]
+  },
+  {
+   "id": "gm3-02",
+   "n": 4,
+   "length": 4,
+   "sequence": [
+    2,
+    4,
+    6,
+    3
+   ],
+   "showMs": 850,
+   "windowMs": 5000,
+   "distractors": [
+    {
+     "kind": "sym",
+     "rows": [
+      "##..#",
+      "#...#",
+      "#..##",
+      "#####",
+      "#...#"
+     ],
+     "answer": "no"
+    },
+    {
+     "kind": "parity",
+     "a": 7,
+     "op": "+",
+     "b": 17,
+     "answer": "even"
+    },
+    {
+     "kind": "parity",
+     "a": 20,
+     "op": "-",
+     "b": 17,
+     "answer": "odd"
+    },
+    {
+     "kind": "sym",
+     "rows": [
+      ".....",
+      "#####",
+      "#.#.#",
+      "##.##",
+      "#...#"
+     ],
+     "answer": "yes"
+    }
+   ]
+  },
+  {
+   "id": "gm3-03",
+   "n": 4,
+   "length": 4,
+   "sequence": [
+    13,
+    3,
+    7,
+    5
+   ],
+   "showMs": 850,
+   "windowMs": 5000,
+   "distractors": [
+    {
+     "kind": "parity",
+     "a": 9,
+     "op": "-",
+     "b": 6,
+     "answer": "odd"
+    },
+    {
+     "kind": "sym",
+     "rows": [
+      ".#.#.",
+      ".###.",
+      "..#..",
+      "#####",
+      ".#.#."
+     ],
+     "answer": "yes"
+    },
+    {
+     "kind": "sym",
+     "rows": [
+      "#####",
+      "#..##",
+      "###.#",
+      ".#.#.",
+      ".###."
+     ],
+     "answer": "no"
+    },
+    {
+     "kind": "parity",
+     "a": 17,
+     "op": "-",
+     "b": 11,
+     "answer": "even"
+    }
+   ]
+  },
+  {
+   "id": "gm3-04",
+   "n": 4,
+   "length": 4,
+   "sequence": [
+    3,
+    2,
+    7,
+    12
+   ],
+   "showMs": 850,
+   "windowMs": 5000,
+   "distractors": [
+    {
+     "kind": "parity",
+     "a": 5,
+     "op": "+",
+     "b": 13,
+     "answer": "even"
+    },
+    {
+     "kind": "sym",
+     "rows": [
+      "#...#",
+      "#..##",
+      "#.###",
+      "#####",
+      "..#.."
+     ],
+     "answer": "no"
+    },
+    {
+     "kind": "sym",
+     "rows": [
+      ".###.",
+      ".###.",
+      "#.#.#",
+      "#####",
+      "#.#.#"
+     ],
+     "answer": "yes"
+    },
+    {
+     "kind": "parity",
+     "a": 14,
+     "op": "-",
+     "b": 3,
+     "answer": "odd"
+    }
+   ]
+  },
+  {
+   "id": "gm3-05",
+   "n": 4,
+   "length": 4,
+   "sequence": [
+    15,
+    6,
+    3,
+    0
+   ],
+   "showMs": 850,
+   "windowMs": 5000,
+   "distractors": [
+    {
+     "kind": "parity",
+     "a": 12,
+     "op": "-",
+     "b": 11,
+     "answer": "odd"
+    },
+    {
+     "kind": "sym",
+     "rows": [
+      "#####",
+      ".#.#.",
+      "##.##",
+      ".#.#.",
+      "#####"
+     ],
+     "answer": "yes"
+    },
+    {
+     "kind": "sym",
+     "rows": [
+      ".###.",
+      "#####",
+      ".###.",
+      "...#.",
+      "...#."
+     ],
+     "answer": "no"
+    },
+    {
+     "kind": "parity",
+     "a": 11,
+     "op": "+",
+     "b": 5,
+     "answer": "even"
+    }
+   ]
+  },
+  {
+   "id": "gm3-06",
+   "n": 4,
+   "length": 5,
+   "sequence": [
+    10,
+    12,
+    11,
+    0,
+    15
+   ],
+   "showMs": 850,
+   "windowMs": 5000,
+   "distractors": [
+    {
+     "kind": "parity",
+     "a": 8,
+     "op": "-",
+     "b": 7,
+     "answer": "odd"
+    },
+    {
+     "kind": "sym",
+     "rows": [
+      ".#..#",
+      "##.##",
+      "#####",
+      "#.#.#",
+      "....."
+     ],
+     "answer": "no"
+    },
+    {
+     "kind": "sym",
+     "rows": [
+      ".#..#",
+      "#####",
+      "#...#",
+      "#####",
+      "##.##"
+     ],
+     "answer": "no"
+    },
+    {
+     "kind": "sym",
+     "rows": [
+      ".....",
+      ".#.#.",
+      ".#.#.",
+      "#####",
+      "##.##"
+     ],
+     "answer": "yes"
+    },
+    {
+     "kind": "parity",
+     "a": 16,
+     "op": "-",
+     "b": 10,
+     "answer": "even"
+    }
+   ]
+  },
+  {
+   "id": "gm3-07",
+   "n": 4,
+   "length": 5,
+   "sequence": [
+    5,
+    14,
+    11,
+    2,
+    4
+   ],
+   "showMs": 850,
+   "windowMs": 5000,
+   "distractors": [
+    {
+     "kind": "parity",
+     "a": 6,
+     "op": "+",
+     "b": 20,
+     "answer": "even"
+    },
+    {
+     "kind": "parity",
+     "a": 20,
+     "op": "-",
+     "b": 7,
+     "answer": "odd"
+    },
+    {
+     "kind": "sym",
+     "rows": [
+      ".###.",
+      "##.#.",
+      "####.",
+      "#####",
+      "....."
+     ],
+     "answer": "no"
+    },
+    {
+     "kind": "parity",
+     "a": 6,
+     "op": "-",
+     "b": 3,
+     "answer": "odd"
+    },
+    {
+     "kind": "sym",
+     "rows": [
+      "..#..",
+      ".###.",
+      "##.##",
+      ".###.",
+      ".###."
+     ],
+     "answer": "yes"
+    }
+   ]
+  },
+  {
+   "id": "gm3-08",
+   "n": 4,
+   "length": 5,
+   "sequence": [
+    6,
+    14,
+    11,
+    0,
+    12
+   ],
+   "showMs": 850,
+   "windowMs": 5000,
+   "distractors": [
+    {
+     "kind": "sym",
+     "rows": [
+      "..#..",
+      "#####",
+      "..#..",
+      "#####",
+      "....."
+     ],
+     "answer": "yes"
+    },
+    {
+     "kind": "parity",
+     "a": 3,
+     "op": "+",
+     "b": 3,
+     "answer": "even"
+    },
+    {
+     "kind": "sym",
+     "rows": [
+      ".....",
+      "..#.#",
+      "###.#",
+      "#####",
+      ".###."
+     ],
+     "answer": "no"
+    },
+    {
+     "kind": "parity",
+     "a": 12,
+     "op": "-",
+     "b": 3,
+     "answer": "odd"
+    },
+    {
+     "kind": "sym",
+     "rows": [
+      "#...#",
+      "#####",
+      "...#.",
+      ".###.",
+      "...#."
+     ],
+     "answer": "no"
+    }
+   ]
+  },
+  {
+   "id": "gm3-09",
+   "n": 4,
+   "length": 5,
+   "sequence": [
+    14,
+    13,
+    1,
+    7,
+    10
+   ],
+   "showMs": 850,
+   "windowMs": 5000,
+   "distractors": [
+    {
+     "kind": "parity",
+     "a": 9,
+     "op": "+",
+     "b": 7,
+     "answer": "even"
+    },
+    {
+     "kind": "sym",
+     "rows": [
+      "#.#.#",
+      "#####",
+      "#.#.#",
+      "###.#",
+      "..#.#"
+     ],
+     "answer": "no"
+    },
+    {
+     "kind": "sym",
+     "rows": [
+      "..#..",
+      "#####",
+      "#.#.#",
+      ".###.",
+      "....."
+     ],
+     "answer": "yes"
+    },
+    {
+     "kind": "parity",
+     "a": 12,
+     "op": "+",
+     "b": 13,
+     "answer": "odd"
+    },
+    {
+     "kind": "parity",
+     "a": 8,
+     "op": "+",
+     "b": 7,
+     "answer": "odd"
+    }
+   ]
+  },
+  {
+   "id": "gm3-10",
+   "n": 4,
+   "length": 5,
+   "sequence": [
+    10,
+    7,
+    5,
+    3,
+    11
+   ],
+   "showMs": 850,
+   "windowMs": 5000,
+   "distractors": [
+    {
+     "kind": "sym",
+     "rows": [
+      "#..#.",
+      "#####",
+      "#.#.#",
+      "#.#.#",
+      "#.#.#"
+     ],
+     "answer": "no"
+    },
+    {
+     "kind": "sym",
+     "rows": [
+      "#####",
+      ".###.",
+      "..#..",
+      "#####",
+      ".###."
+     ],
+     "answer": "yes"
+    },
+    {
+     "kind": "parity",
+     "a": 9,
+     "op": "+",
+     "b": 20,
+     "answer": "odd"
+    },
+    {
+     "kind": "parity",
+     "a": 16,
+     "op": "-",
+     "b": 2,
+     "answer": "even"
+    },
+    {
+     "kind": "parity",
+     "a": 20,
+     "op": "+",
+     "b": 15,
+     "answer": "odd"
+    }
+   ]
+  }
+ ]
+}

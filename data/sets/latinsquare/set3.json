@@ -1,0 +1,350 @@
+{
+ "game": "latinsquare",
+ "version": 1,
+ "set": 3,
+ "name": "First chains",
+ "n": 5,
+ "depth": 2,
+ "blanks": [
+  10,
+  14
+ ],
+ "targets": [
+  1,
+  1
+ ],
+ "paceSec": 30,
+ "seed": 3703,
+ "puzzles": [
+  {
+   "id": "ls3-01",
+   "n": 5,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus"
+   ],
+   "rows": [
+    ".CPS.",
+    "CPDT.",
+    ".TC.D",
+    ".ST.C",
+    ".D..P"
+   ],
+   "targets": [
+    [
+     3,
+     0
+    ]
+   ],
+   "answers": [
+    "P"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    2
+   ],
+   "blanks": 10,
+   "steps": 2
+  },
+  {
+   "id": "ls3-02",
+   "n": 5,
+   "symbols": [
+    "circle",
+    "square",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    ".D.PC",
+    "PH.C.",
+    "C....",
+    "DSCH.",
+    "SCP.H"
+   ],
+   "targets": [
+    [
+     1,
+     4
+    ]
+   ],
+   "answers": [
+    "S"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    2
+   ],
+   "blanks": 10,
+   "steps": 2
+  },
+  {
+   "id": "ls3-03",
+   "n": 5,
+   "symbols": [
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    ".TP..",
+    ".PTSD",
+    "T..DP",
+    "S.HP.",
+    "P..T."
+   ],
+   "targets": [
+    [
+     4,
+     1
+    ]
+   ],
+   "answers": [
+    "S"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    2
+   ],
+   "blanks": 11,
+   "steps": 2
+  },
+  {
+   "id": "ls3-04",
+   "n": 5,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "heart"
+   ],
+   "rows": [
+    "TS...",
+    "HC..D",
+    "CD..T",
+    ".H.CS",
+    "ST.D."
+   ],
+   "targets": [
+    [
+     2,
+     3
+    ]
+   ],
+   "answers": [
+    "S"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    2
+   ],
+   "blanks": 11,
+   "steps": 2
+  },
+  {
+   "id": "ls3-05",
+   "n": 5,
+   "symbols": [
+    "circle",
+    "square",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    "CH.SP",
+    "S....",
+    "..H..",
+    ".SPCH",
+    ".DS.C"
+   ],
+   "targets": [
+    [
+     4,
+     3
+    ]
+   ],
+   "answers": [
+    "P"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    2
+   ],
+   "blanks": 12,
+   "steps": 2
+  },
+  {
+   "id": "ls3-06",
+   "n": 5,
+   "symbols": [
+    "circle",
+    "square",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    "H.P..",
+    "..S.C",
+    ".SCHD",
+    "SC...",
+    "C..SH"
+   ],
+   "targets": [
+    [
+     3,
+     3
+    ]
+   ],
+   "answers": [
+    "D"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    2
+   ],
+   "blanks": 12,
+   "steps": 2
+  },
+  {
+   "id": "ls3-07",
+   "n": 5,
+   "symbols": [
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    ".H..P",
+    "..S..",
+    "T.PHD",
+    "..DSH",
+    "D...S"
+   ],
+   "targets": [
+    [
+     4,
+     1
+    ]
+   ],
+   "answers": [
+    "P"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    2
+   ],
+   "blanks": 13,
+   "steps": 2
+  },
+  {
+   "id": "ls3-08",
+   "n": 5,
+   "symbols": [
+    "circle",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    "TC.P.",
+    ".T..P",
+    "PH.T.",
+    ".D.HT",
+    "...C."
+   ],
+   "targets": [
+    [
+     2,
+     2
+    ]
+   ],
+   "answers": [
+    "D"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    2
+   ],
+   "blanks": 13,
+   "steps": 2
+  },
+  {
+   "id": "ls3-09",
+   "n": 5,
+   "symbols": [
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    ".....",
+    ".P.H.",
+    "HST.P",
+    "P.H..",
+    "DT.S."
+   ],
+   "targets": [
+    [
+     3,
+     3
+    ]
+   ],
+   "answers": [
+    "T"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    2
+   ],
+   "blanks": 14,
+   "steps": 2
+  },
+  {
+   "id": "ls3-10",
+   "n": 5,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    "H.C..",
+    ".C.SH",
+    "CHS..",
+    "P....",
+    "S...P"
+   ],
+   "targets": [
+    [
+     3,
+     3
+    ]
+   ],
+   "answers": [
+    "H"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    2
+   ],
+   "blanks": 14,
+   "steps": 2
+  }
+ ]
+}

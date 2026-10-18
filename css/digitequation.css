@@ -1,0 +1,112 @@
+/* Digit Equation: equation, blanks and tile tray. Loaded by js/games/digitequation/play.js.
+   Colour is never the only cue: blanks carry a letter and a dashed outline, the selected blank a
+   thick outline plus an underline bar, used-up tiles a hatch pattern and a "0 left" label. */
+
+.digitequation {
+  --de-slot-bg: var(--card);
+  --de-slot-line: var(--fg);
+  --de-tile-bg: #fffaf0;
+  --de-tile-edge: #8a6d3b;
+  --de-sel: var(--accent);
+  --de-hint: var(--ok);
+}
+@media (prefers-color-scheme: dark) {
+  .digitequation {
+    --de-tile-bg: #2b2620;
+    --de-tile-edge: #c9a96a;
+  }
+}
+
+.de-board {
+  display: flex; flex-direction: column; align-items: center; gap: 18px;
+  width: 100%; padding: 18px 12px; border-radius: var(--radius);
+  background: var(--board); box-shadow: var(--shadow);
+}
+
+/* ---------------------------------------------------------------- equation */
+.de-eq {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: 8px 10px; font-size: clamp(1.6rem, 6vw, 2.6rem); font-weight: 700;
+  font-variant-numeric: tabular-nums; line-height: 1;
+}
+.de-eq.is-small { font-size: clamp(1.2rem, 4.5vw, 1.8rem); }
+.de-num { display: inline-flex; gap: 3px; }
+.de-op { min-width: 0.8em; text-align: center; color: var(--fg); }
+.de-equals { margin: 0 0.15em; }
+.de-digit {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.25em; height: 1.55em;
+}
+.de-slot {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 1.25em; height: 1.55em; padding: 0; margin: 0;
+  font: inherit; color: var(--fg); background: var(--de-slot-bg);
+  border: 3px dashed var(--de-slot-line); border-radius: 8px; cursor: pointer;
+}
+span.de-slot { cursor: default; }
+.de-slot.is-filled { border-style: solid; }
+.de-slot-label {
+  position: absolute; right: 2px; bottom: 1px;
+  font-size: 0.38em; font-weight: 700; color: var(--muted); line-height: 1;
+}
+.de-slot.is-selected {
+  border: 4px solid var(--de-sel); box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--de-sel);
+}
+.de-slot.is-selected::after {
+  content: ''; position: absolute; left: 15%; right: 15%; bottom: -0.32em;
+  height: 0.12em; border-radius: 2px; background: var(--de-sel);
+}
+.de-slot.is-hint { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6px var(--de-hint); }
+.de-slot.is-hint .de-slot-label::before { content: '? '; }
+.de-slot.is-highlight { border-style: solid; border-color: var(--ok); background: color-mix(in srgb, var(--ok) 18%, var(--card)); }
+.de-slot.is-highlight .de-slot-label::before { content: '* '; }
+.de-slot.is-solved { border-style: double; border-width: 5px; border-color: var(--ok); }
+.de-slot:disabled { cursor: default; opacity: 1; }
+
+.de-eq.is-wrong { animation: de-shake 260ms ease; }
+@keyframes de-shake {
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
+/* ---------------------------------------------------------------- tray */
+.de-tray { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.de-tile {
+  position: relative; display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  min-width: 56px; min-height: 60px; padding: 4px 10px;
+  font: inherit; font-size: 1.7rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--fg); background: var(--de-tile-bg);
+  border: 2px solid var(--de-tile-edge); border-bottom-width: 5px; border-radius: 10px; cursor: pointer;
+}
+.de-tile:hover:not(:disabled):not(.is-empty) { transform: translateY(-1px); }
+.de-tile-count { font-size: 0.7rem; font-weight: 600; color: var(--muted); line-height: 1.1; min-height: 0.8em; }
+.de-tile.is-empty {
+  cursor: not-allowed; color: var(--muted);
+  background-image: repeating-linear-gradient(45deg, transparent 0 6px, color-mix(in srgb, var(--fg) 18%, transparent) 6px 8px);
+  border-style: dashed; border-bottom-width: 2px;
+}
+.de-tile.is-empty .de-tile-digit { text-decoration: line-through; }
+.de-tile:disabled { cursor: default; }
+
+.de-controls { justify-content: center; }
+.de-rules { margin: 0; text-align: center; }
+.de-play .side-col .de-rules { text-align: left; }
+
+/* ---------------------------------------------------------------- explanation and results */
+.de-explain-body .explain-board { gap: 12px; }
+.de-tech { margin-right: 4px; vertical-align: middle; }
+.de-answer { font-size: 1.1rem; }
+.de-unique { margin-left: 8px; }
+.de-check { margin: 12px 0; }
+.de-eq-cell { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.de-unlock { font-weight: 600; padding: 6px 10px; border: 2px solid var(--line); border-radius: 8px; background: var(--card); }
+
+@media (max-width: 480px) {
+  .de-board { padding: 14px 6px; }
+  .de-tile { min-width: 48px; min-height: 54px; font-size: 1.5rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .de-eq.is-wrong { animation: none; outline: 3px dashed var(--warn); outline-offset: 6px; }
+  .de-tile:hover:not(:disabled):not(.is-empty) { transform: none; }
+}

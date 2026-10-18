@@ -1,0 +1,341 @@
+{
+ "game": "digitequation",
+ "version": 1,
+ "set": 1,
+ "name": "Warm-up",
+ "blanks": 1,
+ "paceSec": 15,
+ "seed": 7101,
+ "puzzles": [
+  {
+   "id": "de1-01",
+   "tokens": [
+    "_1",
+    "+",
+    "7",
+    "=",
+    "68"
+   ],
+   "tray": [
+    {
+     "d": 1,
+     "n": 1
+    },
+    {
+     "d": 5,
+     "n": 1
+    },
+    {
+     "d": 6,
+     "n": 1
+    }
+   ],
+   "blanks": 1,
+   "optimal": 1,
+   "answer": [
+    6
+   ],
+   "decoys": 2,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 12
+  },
+  {
+   "id": "de1-02",
+   "tokens": [
+    "20",
+    "-",
+    "1_",
+    "=",
+    "8"
+   ],
+   "tray": [
+    {
+     "d": 2,
+     "n": 1
+    },
+    {
+     "d": 5,
+     "n": 1
+    },
+    {
+     "d": 7,
+     "n": 1
+    }
+   ],
+   "blanks": 1,
+   "optimal": 1,
+   "answer": [
+    2
+   ],
+   "decoys": 2,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 12
+  },
+  {
+   "id": "de1-03",
+   "tokens": [
+    "63",
+    "+",
+    "_",
+    "=",
+    "69"
+   ],
+   "tray": [
+    {
+     "d": 1,
+     "n": 1
+    },
+    {
+     "d": 6,
+     "n": 1
+    },
+    {
+     "d": 9,
+     "n": 1
+    }
+   ],
+   "blanks": 1,
+   "optimal": 1,
+   "answer": [
+    6
+   ],
+   "decoys": 2,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 12
+  },
+  {
+   "id": "de1-04",
+   "tokens": [
+    "4_",
+    "+",
+    "20",
+    "=",
+    "69"
+   ],
+   "tray": [
+    {
+     "d": 2,
+     "n": 1
+    },
+    {
+     "d": 6,
+     "n": 2
+    },
+    {
+     "d": 9,
+     "n": 1
+    }
+   ],
+   "blanks": 1,
+   "optimal": 1,
+   "answer": [
+    9
+   ],
+   "decoys": 3,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 13
+  },
+  {
+   "id": "de1-05",
+   "tokens": [
+    "59",
+    "-",
+    "_9",
+    "=",
+    "40"
+   ],
+   "tray": [
+    {
+     "d": 1,
+     "n": 1
+    },
+    {
+     "d": 3,
+     "n": 1
+    },
+    {
+     "d": 6,
+     "n": 1
+    }
+   ],
+   "blanks": 1,
+   "optimal": 1,
+   "answer": [
+    1
+   ],
+   "decoys": 2,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 13
+  },
+  {
+   "id": "de1-06",
+   "tokens": [
+    "8_",
+    "-",
+    "50",
+    "=",
+    "31"
+   ],
+   "tray": [
+    {
+     "d": 1,
+     "n": 1
+    },
+    {
+     "d": 2,
+     "n": 1
+    },
+    {
+     "d": 5,
+     "n": 1
+    }
+   ],
+   "blanks": 1,
+   "optimal": 1,
+   "answer": [
+    1
+   ],
+   "decoys": 2,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 13
+  },
+  {
+   "id": "de1-07",
+   "tokens": [
+    "85",
+    "-",
+    "2_",
+    "=",
+    "57"
+   ],
+   "tray": [
+    {
+     "d": 0,
+     "n": 1
+    },
+    {
+     "d": 1,
+     "n": 1
+    },
+    {
+     "d": 8,
+     "n": 1
+    }
+   ],
+   "blanks": 1,
+   "optimal": 1,
+   "answer": [
+    8
+   ],
+   "decoys": 2,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 13
+  },
+  {
+   "id": "de1-08",
+   "tokens": [
+    "_9",
+    "+",
+    "32",
+    "=",
+    "121"
+   ],
+   "tray": [
+    {
+     "d": 2,
+     "n": 1
+    },
+    {
+     "d": 3,
+     "n": 1
+    },
+    {
+     "d": 8,
+     "n": 1
+    }
+   ],
+   "blanks": 1,
+   "optimal": 1,
+   "answer": [
+    8
+   ],
+   "decoys": 2,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 14
+  },
+  {
+   "id": "de1-09",
+   "tokens": [
+    "4_",
+    "+",
+    "51",
+    "=",
+    "100"
+   ],
+   "tray": [
+    {
+     "d": 1,
+     "n": 1
+    },
+    {
+     "d": 7,
+     "n": 2
+    },
+    {
+     "d": 9,
+     "n": 1
+    }
+   ],
+   "blanks": 1,
+   "optimal": 1,
+   "answer": [
+    9
+   ],
+   "decoys": 3,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 14
+  },
+  {
+   "id": "de1-10",
+   "tokens": [
+    "8_",
+    "+",
+    "36",
+    "=",
+    "121"
+   ],
+   "tray": [
+    {
+     "d": 0,
+     "n": 2
+    },
+    {
+     "d": 4,
+     "n": 1
+    },
+    {
+     "d": 5,
+     "n": 1
+    }
+   ],
+   "blanks": 1,
+   "optimal": 1,
+   "answer": [
+    5
+   ],
+   "decoys": 3,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 14
+  }
+ ]
+}

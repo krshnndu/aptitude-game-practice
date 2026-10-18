@@ -1,0 +1,435 @@
+{
+ "game": "digitequation",
+ "version": 1,
+ "set": 3,
+ "name": "Order of operations",
+ "blanks": 2,
+ "paceSec": 35,
+ "seed": 7303,
+ "puzzles": [
+  {
+   "id": "de3-01",
+   "tokens": [
+    "_6",
+    "-",
+    "8",
+    "x",
+    "_",
+    "=",
+    "70"
+   ],
+   "tray": [
+    {
+     "d": 2,
+     "n": 2
+    },
+    {
+     "d": 3,
+     "n": 1
+    },
+    {
+     "d": 4,
+     "n": 1
+    },
+    {
+     "d": 8,
+     "n": 1
+    }
+   ],
+   "blanks": 2,
+   "optimal": 2,
+   "answer": [
+    8,
+    2
+   ],
+   "decoys": 3,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 19
+  },
+  {
+   "id": "de3-02",
+   "tokens": [
+    "_1",
+    "-",
+    "_",
+    "x",
+    "3",
+    "=",
+    "54"
+   ],
+   "tray": [
+    {
+     "d": 0,
+     "n": 1
+    },
+    {
+     "d": 2,
+     "n": 1
+    },
+    {
+     "d": 7,
+     "n": 1
+    },
+    {
+     "d": 8,
+     "n": 2
+    },
+    {
+     "d": 9,
+     "n": 1
+    }
+   ],
+   "blanks": 2,
+   "optimal": 2,
+   "answer": [
+    8,
+    9
+   ],
+   "decoys": 4,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 21
+  },
+  {
+   "id": "de3-03",
+   "tokens": [
+    "2_",
+    "+",
+    "7",
+    "x",
+    "2",
+    "=",
+    "_8"
+   ],
+   "tray": [
+    {
+     "d": 0,
+     "n": 1
+    },
+    {
+     "d": 1,
+     "n": 1
+    },
+    {
+     "d": 2,
+     "n": 2
+    },
+    {
+     "d": 3,
+     "n": 1
+    },
+    {
+     "d": 4,
+     "n": 1
+    }
+   ],
+   "blanks": 2,
+   "optimal": 2,
+   "answer": [
+    4,
+    3
+   ],
+   "decoys": 4,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 21
+  },
+  {
+   "id": "de3-04",
+   "tokens": [
+    "19",
+    "+",
+    "5",
+    "x",
+    "_",
+    "=",
+    "2_"
+   ],
+   "tray": [
+    {
+     "d": 2,
+     "n": 1
+    },
+    {
+     "d": 3,
+     "n": 2
+    },
+    {
+     "d": 4,
+     "n": 1
+    },
+    {
+     "d": 9,
+     "n": 2
+    }
+   ],
+   "blanks": 2,
+   "optimal": 2,
+   "answer": [
+    2,
+    9
+   ],
+   "decoys": 4,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 22
+  },
+  {
+   "id": "de3-05",
+   "tokens": [
+    "9_",
+    "-",
+    "9",
+    "x",
+    "4",
+    "=",
+    "6_"
+   ],
+   "tray": [
+    {
+     "d": 1,
+     "n": 1
+    },
+    {
+     "d": 4,
+     "n": 1
+    },
+    {
+     "d": 5,
+     "n": 1
+    },
+    {
+     "d": 7,
+     "n": 2
+    }
+   ],
+   "blanks": 2,
+   "optimal": 2,
+   "answer": [
+    7,
+    1
+   ],
+   "decoys": 3,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 22
+  },
+  {
+   "id": "de3-06",
+   "tokens": [
+    "9_",
+    "-",
+    "2",
+    "x",
+    "_",
+    "=",
+    "87"
+   ],
+   "tray": [
+    {
+     "d": 0,
+     "n": 1
+    },
+    {
+     "d": 6,
+     "n": 1
+    },
+    {
+     "d": 7,
+     "n": 1
+    },
+    {
+     "d": 8,
+     "n": 2
+    },
+    {
+     "d": 9,
+     "n": 1
+    }
+   ],
+   "blanks": 2,
+   "optimal": 2,
+   "answer": [
+    9,
+    6
+   ],
+   "decoys": 4,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 24
+  },
+  {
+   "id": "de3-07",
+   "tokens": [
+    "_8",
+    "-",
+    "_",
+    "x",
+    "5",
+    "=",
+    "28"
+   ],
+   "tray": [
+    {
+     "d": 2,
+     "n": 1
+    },
+    {
+     "d": 4,
+     "n": 1
+    },
+    {
+     "d": 5,
+     "n": 2
+    },
+    {
+     "d": 6,
+     "n": 1
+    }
+   ],
+   "blanks": 2,
+   "optimal": 2,
+   "answer": [
+    5,
+    6
+   ],
+   "decoys": 3,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 25
+  },
+  {
+   "id": "de3-08",
+   "tokens": [
+    "4",
+    "x",
+    "_",
+    "+",
+    "8",
+    "x",
+    "_",
+    "=",
+    "56"
+   ],
+   "tray": [
+    {
+     "d": 2,
+     "n": 1
+    },
+    {
+     "d": 5,
+     "n": 1
+    },
+    {
+     "d": 6,
+     "n": 1
+    },
+    {
+     "d": 7,
+     "n": 2
+    }
+   ],
+   "blanks": 2,
+   "optimal": 2,
+   "answer": [
+    2,
+    6
+   ],
+   "decoys": 3,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 25
+  },
+  {
+   "id": "de3-09",
+   "tokens": [
+    "_9",
+    "-",
+    "3",
+    "x",
+    "5",
+    "=",
+    "_4"
+   ],
+   "tray": [
+    {
+     "d": 0,
+     "n": 1
+    },
+    {
+     "d": 1,
+     "n": 1
+    },
+    {
+     "d": 4,
+     "n": 1
+    },
+    {
+     "d": 6,
+     "n": 1
+    },
+    {
+     "d": 7,
+     "n": 1
+    }
+   ],
+   "blanks": 2,
+   "optimal": 2,
+   "answer": [
+    7,
+    6
+   ],
+   "decoys": 3,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 27
+  },
+  {
+   "id": "de3-10",
+   "tokens": [
+    "9",
+    "x",
+    "_",
+    "+",
+    "5",
+    "x",
+    "_",
+    "=",
+    "82"
+   ],
+   "tray": [
+    {
+     "d": 1,
+     "n": 1
+    },
+    {
+     "d": 2,
+     "n": 1
+    },
+    {
+     "d": 3,
+     "n": 1
+    },
+    {
+     "d": 7,
+     "n": 1
+    },
+    {
+     "d": 8,
+     "n": 1
+    }
+   ],
+   "blanks": 2,
+   "optimal": 2,
+   "answer": [
+    8,
+    2
+   ],
+   "decoys": 3,
+   "solutions": 1,
+   "unique": true,
+   "difficulty": 30
+  }
+ ]
+}

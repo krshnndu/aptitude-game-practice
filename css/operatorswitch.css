@@ -1,0 +1,132 @@
+/* Operator Switch styles. Loaded once by mountOperatorSwitch; builds on the variables in base.css.
+   Every item has a shape, a letter and a pattern as well as an Okabe-Ito colour, so colour is never
+   the only cue. Wrong and right options carry a text mark and a border style, not colour alone. */
+
+.operatorswitch {
+  --os-edge: #1b1c20;
+  --os-box: var(--card);
+  --os-token-md: 44px;
+  --os-token-sm: 28px;
+  --os-token-xs: 20px;
+}
+@media (prefers-color-scheme: dark) {
+  .operatorswitch { --os-edge: #ececf1; }
+}
+@media (max-width: 520px) {
+  .operatorswitch { --os-token-md: 34px; --os-token-sm: 24px; }
+}
+
+.os-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* ------------------------------------------------ items */
+
+.os-token { display: block; flex: none; overflow: visible; }
+.os-token-md { width: var(--os-token-md); height: var(--os-token-md); }
+.os-token-sm { width: var(--os-token-sm); height: var(--os-token-sm); }
+.os-token-xs { width: var(--os-token-xs); height: var(--os-token-xs); }
+.os-shape-edge { stroke: var(--os-edge); stroke-width: 2.2; stroke-linejoin: round; }
+.os-label-bg { fill: #fff; stroke: #111; stroke-width: 1.2; }
+.os-label { fill: #111; font: 800 10.5px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+.os-row { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; }
+.os-slots { display: inline-flex; align-items: flex-end; gap: 4px; }
+.os-row-md .os-slots { gap: 6px; padding: 6px 8px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--os-box); }
+.os-slot { display: inline-flex; flex-direction: column; align-items: center; gap: 1px; }
+.os-slot-no { font-size: 0.75rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1; }
+.os-caption { font-size: 0.75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* ------------------------------------------------ chain */
+
+.os-board { display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px; }
+.os-chain {
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--card);
+  padding: 10px 12px; box-shadow: var(--shadow);
+}
+.os-chain-name { display: inline-block; font-weight: 800; margin-bottom: 4px; }
+.os-chain-body { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.os-arrow { font-size: 1.4rem; font-weight: 800; color: var(--muted); line-height: 1; }
+.os-op {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 2px;
+  min-width: 5.6em; padding: 6px 10px;
+  border: 2.5px solid var(--fg); border-radius: 8px; background: var(--bg);
+}
+.os-op.is-hidden { border-style: dashed; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--bg)); }
+.os-digits { font: 800 1.35rem/1.1 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; letter-spacing: 0.04em; white-space: nowrap; }
+.os-digits-sm { font-size: 0.95rem; }
+.os-op.is-hidden .os-digits { color: var(--accent); }
+.os-unknown {
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-width: 4.5em; min-height: 3.6em; padding: 4px 10px;
+  border: 2.5px dashed var(--muted); border-radius: 8px;
+}
+.os-q { font-size: 1.6rem; font-weight: 800; line-height: 1; }
+
+/* ------------------------------------------------ question and options */
+
+.os-question { font-size: 1.1rem; font-weight: 700; margin: 8px 0; }
+.os-question:focus { outline: none; }
+.os-question:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.os-options {
+  display: grid; gap: 10px; margin: 8px 0 12px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+}
+.os-options.is-ops { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.os-option {
+  position: relative;
+  display: flex; align-items: center; gap: 10px; min-height: 56px;
+  padding: 8px 10px; text-align: left;
+  border: 2px solid var(--line); border-radius: 10px; background: var(--card); color: var(--fg);
+  font: inherit; cursor: pointer; touch-action: manipulation;
+}
+button.os-option:hover:not(:disabled) { border-color: var(--fg); }
+.os-option:disabled { cursor: default; }
+.os-key {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 1.7em; height: 1.7em; border-radius: 6px;
+  border: 1.5px solid var(--muted); font-weight: 800; font-size: 0.9rem; color: var(--muted);
+}
+.os-mark { margin-left: auto; font-weight: 800; font-size: 0.85rem; white-space: nowrap; }
+.os-mark:empty { display: none; }
+.os-option.is-crossed {
+  border-style: dashed; border-color: var(--warn); opacity: 0.75;
+  background-image: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--warn) 16%, transparent) 0 3px, transparent 3px 9px);
+}
+.os-option.is-crossed .os-mark { color: var(--warn); }
+.os-option.is-crossed .os-slots, .os-option.is-crossed .os-digits { text-decoration: line-through; filter: grayscale(0.6); }
+.os-option.is-correct { border-width: 3.5px; border-color: var(--ok); opacity: 1; }
+.os-option.is-correct .os-mark { color: var(--ok); }
+.os-play.is-exam .os-option:disabled { opacity: 1; }
+.os-play.is-exam .os-option.is-crossed:disabled { opacity: 0.75; }
+
+.os-hints { margin: 0; padding-left: 22px; color: var(--fg); }
+.os-hints:empty { display: none; }
+.os-hints li { margin-bottom: 6px; padding: 6px 10px; border-left: 4px solid var(--accent); background: var(--card); border-radius: 6px; }
+
+.os-play.is-exam { max-width: 820px; margin: 0 auto; }
+.os-play.is-review { margin-bottom: 8px; }
+
+/* ------------------------------------------------ menu */
+
+.os-example { margin: 8px 0 16px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); max-width: 640px; }
+.os-example figcaption { margin-top: 6px; }
+.os-unlock { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border: 2px solid var(--accent); border-radius: 8px; background: var(--card); max-width: 460px; }
+
+/* ------------------------------------------------ explanation */
+
+.os-answer-line { margin: 8px 0 0; }
+.os-steps { padding-left: 22px; margin: 0; }
+.os-steps li { margin-bottom: 10px; }
+.os-steps p { margin: 0 0 4px; }
+.os-step-row { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 4px 8px; border-radius: 6px; background: var(--bg); }
+.os-numbers { font: 800 1rem ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; letter-spacing: 0.08em; }
+.os-elim, .os-others { padding-left: 22px; margin: 0 0 8px; }
+.os-elim li, .os-others li { margin-bottom: 4px; }
+.os-explain .callout { margin: 12px 0; }
+
+@media (max-width: 520px) {
+  .os-chain { padding: 8px; }
+  .os-chain-body { gap: 6px; }
+  .os-op { min-width: 4.6em; padding: 4px 6px; }
+  .os-digits { font-size: 1.1rem; }
+  .os-arrow { font-size: 1.1rem; }
+}

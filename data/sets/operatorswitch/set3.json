@@ -1,0 +1,266 @@
+{
+ "game": "operatorswitch",
+ "version": 1,
+ "set": 3,
+ "name": "Three boxes",
+ "n": 4,
+ "kind": "forward",
+ "boxes": [
+  3,
+  3
+ ],
+ "paceSec": 28,
+ "seed": 7303,
+ "puzzles": [
+  {
+   "id": "os3-01",
+   "kind": "forward",
+   "n": 4,
+   "start": "HCTS",
+   "chains": [
+    [
+     "2413",
+     "2431",
+     "1423"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "THSC",
+    "SCTH",
+    "CSHT",
+    "STCH",
+    "HSCT"
+   ],
+   "answer": 1,
+   "optimal": 1,
+   "difficulty": 17
+  },
+  {
+   "id": "os3-02",
+   "kind": "forward",
+   "n": 4,
+   "start": "DTHS",
+   "chains": [
+    [
+     "3421",
+     "3124",
+     "3142"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "SHDT",
+    "HDST",
+    "THSD",
+    "THDS",
+    "STDH"
+   ],
+   "answer": 4,
+   "optimal": 1,
+   "difficulty": 18
+  },
+  {
+   "id": "os3-03",
+   "kind": "forward",
+   "n": 4,
+   "start": "SHDT",
+   "chains": [
+    [
+     "3421",
+     "2143",
+     "3124"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "THDS",
+    "SDTH",
+    "DSHT",
+    "TDSH",
+    "STDH"
+   ],
+   "answer": 4,
+   "optimal": 1,
+   "difficulty": 18
+  },
+  {
+   "id": "os3-04",
+   "kind": "forward",
+   "n": 4,
+   "start": "HTCD",
+   "chains": [
+    [
+     "4321",
+     "3241",
+     "4132"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "DTHC",
+    "DCHT",
+    "DHCT",
+    "TCHD",
+    "CTDH"
+   ],
+   "answer": 0,
+   "optimal": 1,
+   "difficulty": 19
+  },
+  {
+   "id": "os3-05",
+   "kind": "forward",
+   "n": 4,
+   "start": "DCHT",
+   "chains": [
+    [
+     "2143",
+     "2413",
+     "3412"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "HDTC",
+    "CTHD",
+    "DHCT",
+    "HTDC",
+    "CTDH"
+   ],
+   "answer": 4,
+   "optimal": 1,
+   "difficulty": 19
+  },
+  {
+   "id": "os3-06",
+   "kind": "forward",
+   "n": 4,
+   "start": "HSCT",
+   "chains": [
+    [
+     "1342",
+     "2143",
+     "1342"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "CSTH",
+    "CHST",
+    "HCTS",
+    "TSHC",
+    "CHTS"
+   ],
+   "answer": 0,
+   "optimal": 1,
+   "difficulty": 19
+  },
+  {
+   "id": "os3-07",
+   "kind": "forward",
+   "n": 4,
+   "start": "CSDT",
+   "chains": [
+    [
+     "4312",
+     "3412",
+     "3142"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "CTSD",
+    "TCDS",
+    "DCTS",
+    "CDTS",
+    "TDCS"
+   ],
+   "answer": 1,
+   "optimal": 1,
+   "difficulty": 19
+  },
+  {
+   "id": "os3-08",
+   "kind": "forward",
+   "n": 4,
+   "start": "HSTD",
+   "chains": [
+    [
+     "3412",
+     "2314",
+     "3241"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "TDSH",
+    "TSDH",
+    "THSD",
+    "DHTS",
+    "STHD"
+   ],
+   "answer": 2,
+   "optimal": 1,
+   "difficulty": 19
+  },
+  {
+   "id": "os3-09",
+   "kind": "forward",
+   "n": 4,
+   "start": "HDCT",
+   "chains": [
+    [
+     "4321",
+     "3142",
+     "2431"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "TCDH",
+    "DCTH",
+    "TCHD",
+    "THDC",
+    "DTCH"
+   ],
+   "answer": 2,
+   "optimal": 1,
+   "difficulty": 20
+  },
+  {
+   "id": "os3-10",
+   "kind": "forward",
+   "n": 4,
+   "start": "STHD",
+   "chains": [
+    [
+     "4312",
+     "2431",
+     "4213"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "THDS",
+    "DSTH",
+    "DHTS",
+    "DTSH",
+    "DTHS"
+   ],
+   "answer": 4,
+   "optimal": 1,
+   "difficulty": 21
+  }
+ ]
+}

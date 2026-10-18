@@ -1,0 +1,430 @@
+{
+ "game": "latinsquare",
+ "version": 1,
+ "set": 5,
+ "name": "Long chains",
+ "n": 6,
+ "depth": 3,
+ "blanks": [
+  18,
+  22
+ ],
+ "targets": [
+  2,
+  2
+ ],
+ "paceSec": 55,
+ "seed": 5705,
+ "puzzles": [
+  {
+   "id": "ls5-01",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    "D.H...",
+    "H..PS.",
+    "P..C..",
+    ".PS...",
+    "..P..T",
+    ".HC..D"
+   ],
+   "targets": [
+    [
+     3,
+     5
+    ],
+    [
+     4,
+     3
+    ]
+   ],
+   "answers": [
+    "H",
+    "H"
+   ],
+   "depth": 3,
+   "targetDepths": [
+    2,
+    3
+   ],
+   "blanks": 22,
+   "steps": 3
+  },
+  {
+   "id": "ls5-02",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    "..P.HC",
+    "HD.T..",
+    "S.H...",
+    "D...TH",
+    "...P.S",
+    "P.DH.."
+   ],
+   "targets": [
+    [
+     2,
+     1
+    ],
+    [
+     5,
+     4
+    ]
+   ],
+   "answers": [
+    "T",
+    "S"
+   ],
+   "depth": 3,
+   "targetDepths": [
+    2,
+    3
+   ],
+   "blanks": 20,
+   "steps": 5
+  },
+  {
+   "id": "ls5-03",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    ".P..TS",
+    "HS.CP.",
+    ".CST..",
+    ".H.P..",
+    "PT.H.D",
+    "..PS.."
+   ],
+   "targets": [
+    [
+     3,
+     5
+    ],
+    [
+     5,
+     4
+    ]
+   ],
+   "answers": [
+    "C",
+    "C"
+   ],
+   "depth": 3,
+   "targetDepths": [
+    2,
+    3
+   ],
+   "blanks": 18,
+   "steps": 6
+  },
+  {
+   "id": "ls5-04",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    ".P.S..",
+    ".T..S.",
+    "...DHS",
+    "HS.T..",
+    "..T.P.",
+    "..SP.D"
+   ],
+   "targets": [
+    [
+     0,
+     4
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "answers": [
+    "C",
+    "P"
+   ],
+   "depth": 3,
+   "targetDepths": [
+    3,
+    2
+   ],
+   "blanks": 21,
+   "steps": 6
+  },
+  {
+   "id": "ls5-05",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    ".DP..C",
+    "...C..",
+    ".CS.P.",
+    "CH.PD.",
+    ".P...T",
+    "P..D.."
+   ],
+   "targets": [
+    [
+     2,
+     5
+    ],
+    [
+     5,
+     2
+    ]
+   ],
+   "answers": [
+    "D",
+    "C"
+   ],
+   "depth": 3,
+   "targetDepths": [
+    2,
+    3
+   ],
+   "blanks": 21,
+   "steps": 6
+  },
+  {
+   "id": "ls5-06",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    ".P.C..",
+    "...T.D",
+    "HTSP.C",
+    "..P..T",
+    "..C.S.",
+    ".....S"
+   ],
+   "targets": [
+    [
+     1,
+     1
+    ],
+    [
+     5,
+     2
+    ]
+   ],
+   "answers": [
+    "S",
+    "T"
+   ],
+   "depth": 3,
+   "targetDepths": [
+    2,
+    3
+   ],
+   "blanks": 22,
+   "steps": 6
+  },
+  {
+   "id": "ls5-07",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    "...HSC",
+    ".DST.P",
+    "...CP.",
+    ".S..D.",
+    "T...C.",
+    ".CHST."
+   ],
+   "targets": [
+    [
+     0,
+     2
+    ],
+    [
+     3,
+     5
+    ]
+   ],
+   "answers": [
+    "T",
+    "T"
+   ],
+   "depth": 3,
+   "targetDepths": [
+    3,
+    2
+   ],
+   "blanks": 19,
+   "steps": 7
+  },
+  {
+   "id": "ls5-08",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    ".....D",
+    ".HC.TS",
+    "STH..C",
+    "...HPT",
+    "TDPC..",
+    "...S.."
+   ],
+   "targets": [
+    [
+     0,
+     0
+    ],
+    [
+     5,
+     4
+    ]
+   ],
+   "answers": [
+    "H",
+    "H"
+   ],
+   "depth": 3,
+   "targetDepths": [
+    3,
+    3
+   ],
+   "blanks": 19,
+   "steps": 7
+  },
+  {
+   "id": "ls5-09",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    "C..HST",
+    "P.....",
+    "TSC...",
+    "SC....",
+    "..HSPC",
+    "H.TPC."
+   ],
+   "targets": [
+    [
+     1,
+     5
+    ],
+    [
+     3,
+     4
+    ]
+   ],
+   "answers": [
+    "D",
+    "D"
+   ],
+   "depth": 3,
+   "targetDepths": [
+    2,
+    3
+   ],
+   "blanks": 18,
+   "steps": 8
+  },
+  {
+   "id": "ls5-10",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    "..P.SD",
+    "..TPD.",
+    "DHS.C.",
+    "S....C",
+    "....PS",
+    "P.D..."
+   ],
+   "targets": [
+    [
+     0,
+     1
+    ],
+    [
+     4,
+     3
+    ]
+   ],
+   "answers": [
+    "T",
+    "H"
+   ],
+   "depth": 3,
+   "targetDepths": [
+    3,
+    3
+   ],
+   "blanks": 20,
+   "steps": 8
+  }
+ ]
+}

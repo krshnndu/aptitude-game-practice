@@ -1,0 +1,131 @@
+/* Latin Square styles. Loaded by js/games/latinsquare/play.js; theme variables come from base.css.
+   Symbols differ by outline and letter first; the Okabe-Ito fill is a third cue, never the only one. */
+
+.latinsquare {
+  --sym-circle: #0072B2;
+  --sym-square: #E69F00;
+  --sym-triangle: #009E73;
+  --sym-diamond: #CC79A7;
+  --sym-plus: #56B4E9;
+  --sym-heart: #D55E00;
+  --sym-edge: #1b1c20;
+  --ls-stripe: rgba(0, 87, 184, 0.10);
+  --ls-target: #1b1c20;
+}
+
+@media (prefers-color-scheme: dark) {
+  .latinsquare {
+    --sym-circle: #56A8E0;
+    --sym-square: #F2B33D;
+    --sym-triangle: #2CC596;
+    --sym-diamond: #E09BC4;
+    --sym-plus: #8ACDF2;
+    --sym-heart: #F07B2C;
+    --sym-edge: #050506;
+    --ls-stripe: rgba(108, 178, 255, 0.12);
+    --ls-target: #ececf1;
+  }
+}
+
+.ls-rules ul { padding-left: 20px; max-width: 72ch; }
+.ls-rules li { margin-bottom: 6px; }
+.ls-legend { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; vertical-align: middle; }
+.ls-legend .ls-sym { width: auto; height: 1.6em; }
+.ls-legend .ls-shape { width: 1.4em; height: 1.4em; }
+.ls-legend .ls-letter { display: none; }
+.ls-unlock { padding: 6px 12px; border: 2px solid var(--line); border-radius: 8px; background: var(--card); }
+.ls-answer { font-weight: 600; }
+
+/* ------------------------------------------------ symbols */
+
+.ls-sym { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.ls-shape { width: 70%; height: 70%; overflow: visible; }
+.ls-shape > * { stroke: var(--sym-edge); stroke-width: 6; stroke-linejoin: round; }
+.sym-circle .ls-shape > * { fill: var(--sym-circle); }
+.sym-square .ls-shape > * { fill: var(--sym-square); }
+.sym-triangle .ls-shape > * { fill: var(--sym-triangle); }
+.sym-diamond .ls-shape > * { fill: var(--sym-diamond); }
+.sym-plus .ls-shape > * { fill: var(--sym-plus); }
+.sym-heart .ls-shape > * { fill: var(--sym-heart); }
+.ls-letter {
+  position: absolute; right: 3px; bottom: 1px;
+  font-size: clamp(0.6rem, 2.2vw, 0.8rem); font-weight: 800; line-height: 1; color: var(--fg);
+}
+.ls-sym-name { font-weight: 600; }
+
+/* ------------------------------------------------ grid */
+
+.ls-grid-wrap { width: min(92vw, 440px); margin: 0 auto; }
+.ls-grid-wrap.is-small { width: min(88vw, 340px); }
+.ls-grid {
+  display: flex; flex-direction: column; gap: 3px; padding: 3px;
+  background: var(--board); border-radius: var(--radius);
+}
+.ls-row { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 3px; }
+.ls-cell {
+  position: relative; aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+  background: var(--cell); border-radius: 6px; border: 2px solid transparent;
+  cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.ls-grid[role="img"] .ls-cell { cursor: default; }
+.ls-cell .ls-sym { width: 100%; height: 100%; }
+.ls-cell.is-given { background: var(--card); }
+.ls-cell.in-line {
+  background-color: color-mix(in srgb, var(--cell) 86%, var(--accent) 14%);
+  background-image: repeating-linear-gradient(45deg, var(--ls-stripe) 0 4px, transparent 4px 10px);
+}
+.ls-cell.is-given.in-line { background-color: color-mix(in srgb, var(--card) 70%, var(--accent) 12%); }
+.ls-cell.is-target { border: 3px dashed var(--ls-target); background: var(--card); }
+.ls-cell.is-target.in-line { background-color: color-mix(in srgb, var(--card) 80%, var(--accent) 10%); }
+.ls-q { font-size: clamp(1.4rem, 6vw, 2.2rem); font-weight: 900; color: var(--ls-target); line-height: 1; }
+.is-small .ls-q { font-size: 1.3rem; }
+.ls-cell.is-answered { border-style: solid; }
+.ls-cell.is-derived .ls-shape > * { stroke-dasharray: 10 6; fill-opacity: 0.55; }
+.ls-cell.is-derived { border: 2px dashed var(--muted); }
+.ls-cell.is-selected { outline: 3px solid var(--focus); outline-offset: 1px; z-index: 1; }
+.ls-cell.is-cited { box-shadow: inset 0 0 0 3px var(--ok); }
+.ls-cell.is-current { outline: 4px double var(--ok); outline-offset: 1px; z-index: 2; }
+.ls-cell.is-flash { outline: 4px double var(--warn); outline-offset: 1px; animation: ls-pulse 600ms ease 2; z-index: 2; }
+.ls-cell:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; z-index: 3; }
+@keyframes ls-pulse { 50% { transform: scale(0.92); } }
+
+/* ------------------------------------------------ palette */
+
+.ls-palette {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px;
+  width: min(92vw, 440px);
+}
+.ls-pal-btn {
+  position: relative; display: flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 52px; padding: 6px 10px; border-radius: 10px;
+  border: 2px solid var(--line); background: var(--card); color: var(--fg); font: inherit; cursor: pointer;
+}
+.ls-pal-btn:hover:not(:disabled) { border-color: var(--fg); }
+.ls-pal-btn .ls-sym { justify-content: flex-start; }
+.ls-pal-btn .ls-shape { width: 30px; height: 30px; flex: none; }
+.ls-pal-btn .ls-letter { display: none; }
+.ls-key {
+  position: absolute; top: 2px; right: 5px; font-size: 0.7rem; font-weight: 700; color: var(--muted);
+}
+.ls-pal-btn:disabled { cursor: not-allowed; }
+.ls-pal-btn.is-ruled { opacity: 0.45; border-style: dashed; }
+.ls-pal-btn.is-ruled .ls-sym-name { text-decoration: line-through 2px; }
+.ls-pal-btn.is-ruled::after {
+  content: ""; position: absolute; inset: 8px;
+  background: linear-gradient(to top right, transparent calc(50% - 1.5px), var(--warn) calc(50% - 1.5px) calc(50% + 1.5px), transparent calc(50% + 1.5px));
+  pointer-events: none;
+}
+
+.ls-play .play-message { max-width: 52ch; }
+.ls-play.is-exam .board-col { max-width: 480px; }
+
+@media (max-width: 420px) {
+  .ls-palette { grid-template-columns: repeat(3, 1fr); }
+  .ls-pal-btn { flex-direction: column; gap: 2px; min-height: 60px; padding: 4px; }
+  .ls-pal-btn .ls-sym { flex-direction: column; gap: 2px; }
+  .ls-pal-btn .ls-sym-name { font-size: 0.8rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ls-cell.is-flash { animation: none; }
+}

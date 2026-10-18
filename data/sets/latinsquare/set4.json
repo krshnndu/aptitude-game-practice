@@ -1,0 +1,400 @@
+{
+ "game": "latinsquare",
+ "version": 1,
+ "set": 4,
+ "name": "Six by six",
+ "n": 6,
+ "depth": 2,
+ "blanks": [
+  14,
+  18
+ ],
+ "targets": [
+  1,
+  2
+ ],
+ "paceSec": 40,
+ "seed": 4704,
+ "puzzles": [
+  {
+   "id": "ls4-01",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    "DP.S.H",
+    "S.....",
+    "P...DS",
+    "HD..TP",
+    "THPD.C",
+    "CSHTP."
+   ],
+   "targets": [
+    [
+     1,
+     1
+    ]
+   ],
+   "answers": [
+    "C"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    2
+   ],
+   "blanks": 14,
+   "steps": 2
+  },
+  {
+   "id": "ls4-02",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    "PD.TSC",
+    "..PHCT",
+    "SPC.T.",
+    "HT....",
+    "T..P.D",
+    ".HTS.."
+   ],
+   "targets": [
+    [
+     4,
+     2
+    ]
+   ],
+   "answers": [
+    "S"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    2
+   ],
+   "blanks": 15,
+   "steps": 2
+  },
+  {
+   "id": "ls4-03",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    "H.CD..",
+    "P.ST.H",
+    "TH..S.",
+    "C....D",
+    "S.P.D.",
+    "DTHC.S"
+   ],
+   "targets": [
+    [
+     0,
+     4
+    ]
+   ],
+   "answers": [
+    "T"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    2
+   ],
+   "blanks": 16,
+   "steps": 2
+  },
+  {
+   "id": "ls4-04",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    "D.S.HP",
+    "SP.TCD",
+    ".STDP.",
+    "...SD.",
+    "T..PS.",
+    "P....."
+   ],
+   "targets": [
+    [
+     3,
+     5
+    ]
+   ],
+   "answers": [
+    "T"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    2
+   ],
+   "blanks": 17,
+   "steps": 2
+  },
+  {
+   "id": "ls4-05",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    ".SD.P.",
+    "PCHSD.",
+    "....TS",
+    "..T..P",
+    "H.P.SD",
+    "...DH."
+   ],
+   "targets": [
+    [
+     5,
+     0
+    ]
+   ],
+   "answers": [
+    "T"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    2
+   ],
+   "blanks": 18,
+   "steps": 3
+  },
+  {
+   "id": "ls4-06",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    "PD..H.",
+    "..HDCS",
+    ".SC.P.",
+    ".H.P..",
+    "SCD.TP",
+    "HT.CSD"
+   ],
+   "targets": [
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     3
+    ]
+   ],
+   "answers": [
+    "T",
+    "T"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    1,
+    2
+   ],
+   "blanks": 14,
+   "steps": 3
+  },
+  {
+   "id": "ls4-07",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    "HC..T.",
+    "TPHDS.",
+    "...T.S",
+    ".TC.D.",
+    ".SPCH.",
+    "CD.SP."
+   ],
+   "targets": [
+    [
+     0,
+     5
+    ],
+    [
+     4,
+     0
+    ]
+   ],
+   "answers": [
+    "D",
+    "D"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    2,
+    1
+   ],
+   "blanks": 15,
+   "steps": 3
+  },
+  {
+   "id": "ls4-08",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    "S..H..",
+    "..SC.D",
+    "TP.SC.",
+    "HCTDS.",
+    ".D.TP.",
+    ".SCP.."
+   ],
+   "targets": [
+    [
+     0,
+     5
+    ],
+    [
+     1,
+     4
+    ]
+   ],
+   "answers": [
+    "C",
+    "T"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    1,
+    2
+   ],
+   "blanks": 16,
+   "steps": 3
+  },
+  {
+   "id": "ls4-09",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    "DCHT..",
+    "C.T.S.",
+    "H.CS.P",
+    "SH.PC.",
+    "..S..C",
+    "..P..D"
+   ],
+   "targets": [
+    [
+     1,
+     3
+    ],
+    [
+     3,
+     5
+    ]
+   ],
+   "answers": [
+    "D",
+    "T"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    2,
+    1
+   ],
+   "blanks": 17,
+   "steps": 3
+  },
+  {
+   "id": "ls4-10",
+   "n": 6,
+   "symbols": [
+    "circle",
+    "square",
+    "triangle",
+    "diamond",
+    "plus",
+    "heart"
+   ],
+   "rows": [
+    ".PS..H",
+    "..D...",
+    "STH...",
+    ".DTHS.",
+    ".SC..T",
+    "DH.ST."
+   ],
+   "targets": [
+    [
+     1,
+     1
+    ],
+    [
+     3,
+     5
+    ]
+   ],
+   "answers": [
+    "C",
+    "P"
+   ],
+   "depth": 2,
+   "targetDepths": [
+    1,
+    2
+   ],
+   "blanks": 18,
+   "steps": 3
+  }
+ ]
+}

@@ -1,0 +1,301 @@
+{
+ "game": "operatorswitch",
+ "version": 1,
+ "set": 5,
+ "name": "Five items, four boxes",
+ "n": 5,
+ "kind": "forward",
+ "boxes": [
+  4,
+  4
+ ],
+ "paceSec": 50,
+ "seed": 7505,
+ "puzzles": [
+  {
+   "id": "os5-01",
+   "kind": "forward",
+   "n": 5,
+   "start": "HSTCD",
+   "chains": [
+    [
+     "35241",
+     "34215",
+     "24513",
+     "31542"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "DSHTC",
+    "CTHSD",
+    "THDCS",
+    "CDTHS",
+    "HCDTS",
+    "HCDST"
+   ],
+   "answer": 5,
+   "optimal": 1,
+   "difficulty": 25
+  },
+  {
+   "id": "os5-02",
+   "kind": "forward",
+   "n": 5,
+   "start": "DCTHS",
+   "chains": [
+    [
+     "13524",
+     "23541",
+     "34251",
+     "41532"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "THSDC",
+    "DHTSC",
+    "DHSTC",
+    "HSDCT",
+    "HCSDT",
+    "HDSTC"
+   ],
+   "answer": 1,
+   "optimal": 1,
+   "difficulty": 26
+  },
+  {
+   "id": "os5-03",
+   "kind": "forward",
+   "n": 5,
+   "start": "SHTCD",
+   "chains": [
+    [
+     "45312",
+     "51243",
+     "35214",
+     "45132"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "CDHTS",
+    "CDSTH",
+    "HSCDT",
+    "DTCHS",
+    "DTCSH",
+    "HSDCT"
+   ],
+   "answer": 5,
+   "optimal": 1,
+   "difficulty": 26
+  },
+  {
+   "id": "os5-04",
+   "kind": "forward",
+   "n": 5,
+   "start": "SDCHT",
+   "chains": [
+    [
+     "24153",
+     "43251",
+     "43215",
+     "51423"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "DCSHT",
+    "TSHDC",
+    "DCTHS",
+    "CHSTD",
+    "SCTDH",
+    "SHDTC"
+   ],
+   "answer": 2,
+   "optimal": 1,
+   "difficulty": 27
+  },
+  {
+   "id": "os5-05",
+   "kind": "forward",
+   "n": 5,
+   "start": "TDHSC",
+   "chains": [
+    [
+     "15423",
+     "51324",
+     "53124",
+     "13254"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "DCSHT",
+    "CHDST",
+    "HSTDC",
+    "THDCS",
+    "DHSCT",
+    "DSHTC"
+   ],
+   "answer": 4,
+   "optimal": 1,
+   "difficulty": 27
+  },
+  {
+   "id": "os5-06",
+   "kind": "forward",
+   "n": 5,
+   "start": "DHCTS",
+   "chains": [
+    [
+     "41253",
+     "31452",
+     "31254",
+     "35412"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "CSTDH",
+    "SHTDC",
+    "SDCHT",
+    "DSTCH",
+    "TCDSH",
+    "TSDCH"
+   ],
+   "answer": 4,
+   "optimal": 1,
+   "difficulty": 28
+  },
+  {
+   "id": "os5-07",
+   "kind": "forward",
+   "n": 5,
+   "start": "DCSTH",
+   "chains": [
+    [
+     "24135",
+     "54213",
+     "41352",
+     "23154"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "HTCSD",
+    "CHTDS",
+    "THSCD",
+    "CSDHT",
+    "HTSDC",
+    "HTDSC"
+   ],
+   "answer": 0,
+   "optimal": 1,
+   "difficulty": 28
+  },
+  {
+   "id": "os5-08",
+   "kind": "twin",
+   "n": 5,
+   "start": "DTSHC",
+   "chains": [
+    [
+     "53214",
+     "52134",
+     "25143",
+     "25413"
+    ],
+    [
+     "31254",
+     "35124",
+     "45132"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "DCTSH",
+    "DCTHS",
+    "TCHDS",
+    "HCDST",
+    "DCSHT",
+    "TSHDC"
+   ],
+   "answer": 0,
+   "optimal": 1,
+   "difficulty": 31
+  },
+  {
+   "id": "os5-09",
+   "kind": "twin",
+   "n": 5,
+   "start": "HSDCT",
+   "chains": [
+    [
+     "23514",
+     "24351",
+     "34215",
+     "45132"
+    ],
+    [
+     "43521",
+     "15234",
+     "35421"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "CTHDS",
+    "CDTHS",
+    "DTCSH",
+    "DTCHS",
+    "DSTHC",
+    "DTSHC"
+   ],
+   "answer": 4,
+   "optimal": 1,
+   "difficulty": 32
+  },
+  {
+   "id": "os5-10",
+   "kind": "twin",
+   "n": 5,
+   "start": "STDHC",
+   "chains": [
+    [
+     "32451",
+     "54213",
+     "41253",
+     "45213"
+    ],
+    [
+     "51234",
+     "42513",
+     "35214"
+    ]
+   ],
+   "hidden": null,
+   "target": null,
+   "options": [
+    "TSCHD",
+    "HTSDC",
+    "DCTSH",
+    "HDSCT",
+    "HCTSD",
+    "HCSDT"
+   ],
+   "answer": 1,
+   "optimal": 1,
+   "difficulty": 32
+  }
+ ]
+}
