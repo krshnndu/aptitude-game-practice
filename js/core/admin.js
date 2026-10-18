@@ -211,6 +211,19 @@ export function mountAdmin(main) {
       )
     );
 
+    const srcRows = Object.entries(d.sources || {});
+    const sourcesCard = el('div', { class: 'card', style: 'padding: 20px; margin-bottom: 24px;' },
+      el('h3', { style: 'margin-top: 0;', text: 'Traffic sources' }),
+      el('p', { class: 'muted small', text: 'First-visit source per visitor: utm source/medium/campaign if tagged, else referrer host, else direct. "Started" = began at least one run.' }),
+      srcRows.length
+        ? el('table', { class: 'results' },
+            el('thead', {}, el('tr', {}, el('th', { text: 'Source' }), el('th', { text: 'Visitors' }), el('th', { text: 'Started' }), el('th', { text: 'Rate' }))),
+            el('tbody', {}, ...srcRows.map(([k, v]) => el('tr', {},
+              el('td', { text: k }), el('td', { text: String(v.visitors) }), el('td', { text: String(v.started_run) }),
+              el('td', { text: v.visitors ? Math.round(100 * v.started_run / v.visitors) + '%' : '-' })))))
+        : el('p', { class: 'muted small', text: 'No data' })
+    );
+
     const hotspots = d.itemHotspots || [];
     let hotspotCard = null;
     if (hotspots.length > 0) {
@@ -253,6 +266,7 @@ export function mountAdmin(main) {
       perfCard,
       frictionCard,
       audienceCard,
+      sourcesCard,
       ...(hotspotCard ? [hotspotCard] : []),
       footerStats
     );
