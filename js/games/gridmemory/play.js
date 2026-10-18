@@ -3,6 +3,7 @@
 // wires input. Every attempt is saved through the shared recorder and reviewed by the coach.
 
 import { el } from '../../core/dom.js';
+import { runExtras } from '../../core/board.js';
 import { Countdown, formatClock } from '../../core/timer.js';
 import { createStore } from '../../core/store.js';
 import { createRecorder, summarizeRun, newId } from '../../core/recorder.js';
@@ -968,6 +969,7 @@ async function renderRun(ctx, setNo) {
           run.trail.map((s) => el('li', { class: s.success ? 'is-pass' : 'is-miss', style: { '--len': s.length } },
             el('span', { class: 'gm-trail-bar', 'aria-hidden': 'true' }),
             el('span', { class: 'gm-trail-label', text: `${s.length} ${s.success ? 'pass' : 'miss'}` })))),
+        runExtras(GAME_ID, setNo, improved),
         !wasOpen && nowOpen ? el('p', { class: 'callout callout-ok', text: `Set ${setNo + 1} unlocked. Nice work.` }) : null,
         avg < UNLOCK_THRESHOLD && setNo < SET_CONFIGS.length && !nowOpen
           ? el('p', { class: 'callout', text: `Reach ${pct(UNLOCK_THRESHOLD)} average (score / ${slots}) to unlock set ${setNo + 1}.` })

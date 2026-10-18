@@ -105,3 +105,27 @@ export async function track(page) {
     fetch(b + '/hit', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ cid: cid(), sid: SID, page: page || 'home', first, ref, dev: w < 600 ? 'mobile' : w < 1024 ? 'tablet' : 'desktop' }) }).catch(() => {});
   } catch { /* never break the site */ }
 }
+
+// Streaks: consecutive calendar days with at least one finished run. Stored locally only.
+const K_STREAK = 'cogprep.streak';
+const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+export function bumpStreak() {
+  let st; try { st = JSON.parse(ls.get(K_STREAK) || 'null'); } catch { st = null; }
+  st = st || { last: '', count: 0, best: 0, total: 0 };
+  const today = dayKey(), yest = dayKey(new Date(Date.now() - 864e5));
+  if (st.last !== today) { st.count = st.last === yest ? st.count + 1 : 1; st.last = today; }
+  st.total += 1; st.best = Math.max(st.best, st.count);
+  ls.set(K_STREAK, JSON.stringify(st));
+  return st;
+}
+
+// Result-screen extras: personal-best badge, streak line, and the opt-in compare strip.
+export function runExtras(game, set, improved) {
+  const st = bumpStreak();
+  const box = el('div', { class: 'run-extras' });
+  if (improved) box.append(el('p', { class: 'callout callout-ok', text: 'Personal best! New top score for this set.' }));
+  box.append(el('p', { class: 'muted', text: `Streak: ${st.count} day${st.count === 1 ? '' : 's'} in a row (best ${st.best}). ${st.total} runs finished on this browser.` }));
+  const slot = el('div', {}); box.append(slot);
+  if (compareOn()) setTimeout(async () => { const n = await compareStrip(game, set); if (n) slot.replaceChildren(n); }, 2500);
+  return box;
+}

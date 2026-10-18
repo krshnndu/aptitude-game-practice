@@ -3,6 +3,7 @@
 // this file only renders and wires input. Every attempt is logged through the core recorder.
 
 import { el } from '../../core/dom.js';
+import { runExtras } from '../../core/board.js';
 import { Countdown, formatClock } from '../../core/timer.js';
 import { createStore } from '../../core/store.js';
 import { createRecorder, summarizeRun, newId } from '../../core/recorder.js';
@@ -724,6 +725,7 @@ async function renderRun(ctx, setNo) {
         el('div', { class: 'tile' }, el('span', { class: 'tile-label', text: 'Average (unlock measure)' }), el('strong', { text: pct(avg) })),
         el('div', { class: 'tile' }, el('span', { class: 'tile-label', text: 'Best for this set' }), el('strong', { text: `${round2(best)}${improved ? ' (new best)' : ''}` })),
       ),
+      runExtras(GAME_ID, setNo, improved),
       !wasOpen && nowOpen ? el('p', { class: 'callout callout-ok', text: `Set ${setNo + 1} unlocked. Nice work.` }) : null,
       avg < UNLOCK_THRESHOLD && setNo < SET_CONFIGS.length && !nowOpen
         ? el('p', { class: 'callout', text: `Reach ${pct(UNLOCK_THRESHOLD)} (score / ${slots}) to unlock set ${setNo + 1}.` })
