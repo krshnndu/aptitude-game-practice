@@ -2,6 +2,7 @@
 // Token is kept in sessionStorage only (never saved permanently or committed).
 import { el } from './dom.js';
 import { base, cid } from './board.js';
+import { lineChart, barChart } from './charts.js';
 
 const K_ADMIN_TOKEN = 'cogprep.admin_token';
 const K_SELF = 'cogprep.self.v1';
@@ -224,6 +225,50 @@ export function mountAdmin(main) {
         : el('p', { class: 'muted small', text: 'No data' })
     );
 
+    // ---- charts ----
+    const fillDays = () => {
+      const out = []; const dd = d.daily || {};
+      for (let i = Math.min(days, 90) - 1; i >= 0; i--) {
+        const t = new Date(Date.now() - i * 864e5);
+        const k = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+        out.push({ k, label: k.slice(5), views: dd[k]?.views || 0, unique: dd[k]?.unique || 0 });
+      }
+      return out;
+    };
+    const dl = fillDays();
+    const hasAny = (d.pageViews || 0) > 0;
+    const grid = (...kids) => el('div', { style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 24px;' }, ...kids);
+    const wrap = (node) => el('div', { class: 'card', style: 'padding: 16px;' }, node);
+    const bars = (obj, n = 8) => Object.entries(obj || {}).sort((a, b) => b[1] - a[1]).slice(0, n).map(([label, value]) => ({ label: String(label).slice(0, 10), value }));
+    const trendCard = hasAny ? wrap(lineChart({
+      title: 'Traffic over time', subtitle: 'Daily page views and unique visitors',
+      xLabels: dl.map((x) => x.label),
+      series: [{ name: 'Views', values: dl.map((x) => x.views), color: 'var(--series-1)', mode: 'both' }, { name: 'Visitors', values: dl.map((x) => x.unique), color: 'var(--series-2)', mode: 'both' }],
+    })) : el('div', { class: 'card muted', style: 'padding: 16px;', text: 'No traffic yet in this window.' });
+    const hours = Array.from({ length: 24 }, (_, h) => ({ label: String(h), value: d.hourly?.[h] || 0, detail: `${h}:00 UTC` }));
+    const wk = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((k) => ({ label: k, value: d.weekday?.[k] || 0 }));
+    const timeGrid = hasAny ? grid(
+      wrap(barChart({ title: 'Activity by hour', subtitle: 'Server clock hour', bars: hours })),
+      wrap(barChart({ title: 'Activity by weekday', subtitle: 'All events', bars: wk }))) : null;
+    const gameGrid = hasAny ? grid(
+      wrap(barChart({ title: 'Top pages', subtitle: 'Views by page', bars: bars(d.pages, 8) })),
+      wrap(barChart({ title: 'Game starts', subtitle: 'By game', bars: bars(d.gameStarts, 6) })),
+      wrap(barChart({ title: 'Game finishes', subtitle: 'Completed timed runs', bars: bars(d.gameFinishes, 6) }))) : null;
+    const errRows = d.errors || [];
+    const errCard = el('div', { class: 'card', style: 'padding: 20px; margin-bottom: 24px;' },
+      el('h3', { style: 'margin-top: 0;', text: 'Client errors' }),
+      errRows.length
+        ? el('table', { class: 'results' }, el('thead', {}, el('tr', {}, el('th', { text: 'Error @ file' }), el('th', { text: 'Device' }), el('th', { text: 'Count' }))),
+            el('tbody', {}, ...errRows.map((e) => el('tr', {}, el('td', { text: String(e.hash) }), el('td', { text: String(e.game || '') }), el('td', { text: String(e.n) })))))
+        : el('p', { class: 'muted small', text: 'No errors recorded.' }));
+    const retention = d.retention || {};
+    const retCard = el('div', { class: 'card', style: 'padding: 20px; margin-bottom: 24px;' },
+      el('h3', { style: 'margin-top: 0;', text: 'Retention & engagement' }),
+      el('div', { style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 12px;' },
+        kpi('Returned next day', retention.returnedNextDay ?? 0), kpi('Returned after 7d', retention.returnedAfter7d ?? 0),
+        kpi('Pages / session', d.pagesPerSession ?? 0), kpi('Median session', d.medianSessionSec != null ? `${d.medianSessionSec}s` : 'N/A'),
+        kpi('Upload fails', d.uploadFails ?? 0)));
+
     const hotspots = d.itemHotspots || [];
     let hotspotCard = null;
     if (hotspots.length > 0) {
@@ -262,11 +307,16 @@ export function mountAdmin(main) {
       rangeBar,
       selfCard,
       kpis,
+      trendCard,
+      timeGrid,
+      gameGrid,
       funnelCard,
       perfCard,
       frictionCard,
       audienceCard,
       sourcesCard,
+      retCard,
+      errCard,
       ...(hotspotCard ? [hotspotCard] : []),
       footerStats
     );
