@@ -553,3 +553,8 @@ div.piece { cursor: default; }
   .piece.is-blocked { animation: none; }
   html:focus-within { scroll-behavior: auto; }
 }
+
+.maker { margin: 2rem 0; padding: 1rem 1.25rem; border: 1px solid currentColor; border-radius: 12px; }
+.maker-links { padding-left: 1.2rem; }
+.maker-links li { margin: .4rem 0; }
+.maker-foot { margin-top: .5rem; }
