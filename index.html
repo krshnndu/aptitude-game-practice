@@ -9,6 +9,12 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230072B2'/%3E%3Ccircle cx='8' cy='8' r='4' fill='%23F0E442'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/base.css">
   <script type="module" src="js/core/shell.js"></script>
+  <script>
+    try {
+      const t = localStorage.getItem('cogprep.theme.v1');
+      if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    } catch {}
+  </script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -19,6 +25,7 @@
       <a href="#/analytics">Progress</a>
       <a href="#/board">Leaderboard</a>
       <a href="#/about">About</a>
+      <button type="button" class="theme-toggle" id="theme-btn" aria-label="Toggle color theme">🌓 Auto</button>
     </nav>
   </header>
 

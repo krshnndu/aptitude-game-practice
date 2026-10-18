@@ -1,3 +1,5 @@
+import { mountAdmin } from './admin.js';
+import { ev } from './board.js';
 // Site shell: hash router, home page game cards and the about page.
 // Each route renders into <main>; a route may return a cleanup function (timers, key handlers).
 
@@ -151,6 +153,7 @@ async function route() {
     else if (page === 'about') renderAbout(main);
     else if (page === 'analytics') cleanup = mountAnalytics(main);
     else if (page === 'board') cleanup = mountBoard(main);
+    else if (page === 'admin') cleanup = mountAdmin(main);
     else if (MOUNTS[page]) {
       const dispose = await MOUNTS[page](main, rest);
       // A newer navigation happened while loading: drop this view.
@@ -162,13 +165,43 @@ async function route() {
     console.error(err);
     main.replaceChildren(el('p', { class: 'notice' }, `Something went wrong: ${err.message}`));
   }
-  const titles = { blockslide: 'Block Slide', latinsquare: 'Latin Square', gridmemory: 'Grid Memory', operatorswitch: 'Operator Switch', digitequation: 'Digit Equation', patternrule: 'Pattern Rule', about: 'About', analytics: 'Progress and analytics', board: 'Leaderboard' };
+  const titles = { blockslide: 'Block Slide', latinsquare: 'Latin Square', gridmemory: 'Grid Memory', operatorswitch: 'Operator Switch', digitequation: 'Digit Equation', patternrule: 'Pattern Rule', about: 'About', analytics: 'Progress and analytics', board: 'Leaderboard', admin: 'Site Operations & Analytics' };
   track(page);
   document.title = `${titles[page] ?? 'Games'} | CogPrep Arcade`;
   window.scrollTo(0, 0);
 }
 
+
+function initTheme() {
+  const btn = document.getElementById('theme-btn');
+  if (!btn) return;
+  const K_THEME = 'cogprep.theme.v1';
+  const getTheme = () => {
+    try { return localStorage.getItem(K_THEME) || 'system'; } catch { return 'system'; }
+  };
+  const updateLabel = (t) => {
+    btn.textContent = t === 'dark' ? '🌙 Dark' : t === 'light' ? '☀️ Light' : '🌓 Auto';
+  };
+  updateLabel(getTheme());
+  btn.addEventListener('click', () => {
+    const cur = getTheme();
+    const next = cur === 'system' ? 'dark' : cur === 'dark' ? 'light' : 'system';
+    try {
+      if (next === 'system') {
+        localStorage.removeItem(K_THEME);
+        document.documentElement.removeAttribute('data-theme');
+      } else {
+        localStorage.setItem(K_THEME, next);
+        document.documentElement.setAttribute('data-theme', next);
+      }
+    } catch {}
+    updateLabel(next);
+    ev('toggle_theme', 'shell', { theme: next });
+  });
+}
+
 if (typeof window !== 'undefined') {
+  initTheme();
   window.addEventListener('hashchange', route);
   startBoard();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', route);

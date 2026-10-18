@@ -14,7 +14,7 @@ export const compareOn = () => ls.get(K_CMP) === '1';
 export const setCompare = (on) => ls.set(K_CMP, on ? '1' : '0');
 
 let endpoint = null;
-async function base() {
+export async function base() {
   if (endpoint) return endpoint;
   try { const r = await fetch('endpoint.json', { cache: 'no-store' }); endpoint = (await r.json()).url || null; } catch { endpoint = null; }
   return endpoint;
@@ -26,7 +26,7 @@ async function flush() {
   let q = queue(); if (!q.length) return;
   const rest = [];
   for (const body of q.slice(0, 20)) {
-    try { const r = await fetch(b + '/submit', { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain' } }); if (!r.ok && r.status >= 500) rest.push(body); } catch { rest.push(body); }
+    try { const r = await fetch(b + '/submit', { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain' } }); if (!r.ok) { ev('upload_fail', 'board', { status: r.status }); if (r.status >= 500) rest.push(body); } } catch { ev('upload_fail', 'board', { status: 0 }); rest.push(body); }
   }
   ls.set(K_Q, JSON.stringify(rest.concat(q.slice(20)).slice(-50)));
 }
@@ -102,6 +102,8 @@ const K_SELF = 'cogprep.self.v1';
 const GAMES = ['blockslide', 'latinsquare', 'gridmemory', 'operatorswitch', 'digitequation', 'patternrule'];
 let firstHit = true, envSent = false, curPage = 'home', pageT0 = Date.now(), leftPage = false;
 const itemIdx = {};
+let activeRun = null, lastEnd = 0, perfSent = false, lcp = 0, ltN = 0;
+function abandon(exit) { if (!activeRun) return; const r = activeRun; activeRun = null; ev('run_abandon', r.game, { game: r.game, set: r.set, mode: 'exam', rid: r.rid, exit, elapsed: Math.min(Date.now() - r.t0, 3600000), items_seen: r.items }); }
 function envInfo() {
   const ua = navigator.userAgent || '', w = innerWidth, touch = (navigator.maxTouchPoints || 0) > 0;
   const mob = /Mobi|Android|iPhone|iPod/i.test(ua), tab = /iPad|Tablet/i.test(ua) || (/Macintosh/.test(ua) && touch);
@@ -141,15 +143,51 @@ export function startTelemetry() {
   if (wired || typeof window === 'undefined') return; wired = true;
   onAttemptSaved((a) => {
     const rid = a.runId || a.id;
+    if (a.mode === 'exam' && !(rid in itemIdx)) { activeRun = { rid: String(rid).slice(0, 20), game: a.game, set: a.set, t0: Date.now(), items: 0 }; }
+    if (activeRun && String(rid).slice(0, 20) === activeRun.rid) activeRun.items += 1;
     if (a.mode === 'exam' && !(rid in itemIdx)) ev('run_start', a.game, { game: a.game, set: a.set, mode: 'exam', rid: String(rid).slice(0, 20) });
     const i = itemIdx[rid] = (itemIdx[rid] || 0) + 1;
     ev('item', a.game, { game: a.game, set: a.set, mode: a.mode, rid: String(rid).slice(0, 20), i, ms: Math.round((a.metrics && a.metrics.totalMs) || 0), ok: a.outcome === 'solved', skip: a.outcome === 'skipped', hint: (a.hintsUsed || 0) > 0 });
   });
-  onRunSaved((r) => ev('run_end', r.game, { game: r.game, set: r.set, mode: 'exam', rid: String(r.id).slice(0, 20), n: Math.round(r.attempted || 0), ms: Math.round(r.durationMs || 0) }));
+  onRunSaved((r) => { activeRun = null; lastEnd = Date.now(); ev('run_end', r.game, { game: r.game, set: r.set, mode: 'exam', rid: String(r.id).slice(0, 20), n: Math.round(r.attempted || 0), ms: Math.round(r.durationMs || 0) }); });
   addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && !leftPage) { leftPage = true; ev('leave', curPage, { dur: Math.min(Date.now() - pageT0, 14400000) }); } else if (document.visibilityState === 'visible' && leftPage) { leftPage = false; pageT0 = Date.now(); } });
   document.addEventListener('click', (e) => { const a = e.target && e.target.closest && e.target.closest('a[href^="http"]'); if (a) { try { const u = new URL(a.href); if (u.hostname !== location.hostname) ev('link_click', curPage, { tgt: u.hostname.slice(0, 40) }); } catch { /* ignore */ } } }, true);
   addEventListener('error', (e) => { ev('js_error', curPage, { name: String(e.message || 'error').replace(/[^A-Za-z0-9 ._]/g, '').slice(0, 24), src: String(e.filename || '').split('/').pop().slice(0, 40), line: e.lineno || 0 }); });
   addEventListener('unhandledrejection', () => ev('js_error', curPage, { name: 'unhandledrejection' }));
+  addEventListener('orientationchange', () => {
+    try {
+      const o = (screen.orientation && screen.orientation.type) || (innerWidth > innerHeight ? 'landscape' : 'portrait');
+      ev('env', curPage, { orient: o });
+    } catch { /* ignore */ }
+  });
+  addEventListener('hashchange', () => abandon('nav'));
+  addEventListener('pagehide', () => abandon('unload'));
+  addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'hidden') return;
+    abandon('hidden');
+    if (!perfSent && (lcp || ltN)) { perfSent = true; ev('perf', curPage, { lcp: Math.round(lcp), lt_n: ltN }); }
+  });
+  try { new PerformanceObserver((l) => { const e = l.getEntries(); if (e.length) lcp = e[e.length - 1].startTime; }).observe({ type: 'largest-contentful-paint', buffered: true }); } catch { /* ignore */ }
+  try { new PerformanceObserver((l) => { ltN += l.getEntries().length; }).observe({ type: 'longtask', buffered: true }); } catch { /* ignore */ }
+  document.addEventListener('click', (e) => {
+    const t = e.target && e.target.closest ? e.target : null; if (!t) return;
+    const card = t.closest('.set-card');
+    if (card) {
+      const m = (card.textContent || '').match(/Set\s*(\d)/); const a = t.closest('a[href]');
+      const hm = a && a.getAttribute('href').match(/#\/(\w+)\/(?:run|practice)\/(\d)/);
+      const game = hm ? hm[1] : curPage, set = hm ? Number(hm[2]) : (m ? Number(m[1]) : 0);
+      if (GAMES.includes(game) && (card.classList.contains('is-locked') || a)) ev('set_select', game, { game, set, locked: card.classList.contains('is-locked') });
+    }
+    if (lastEnd && Date.now() - lastEnd < 120000) {
+      const b = t.closest('a.btn, button.btn, a[href], button');
+      if (b) { lastEnd = 0; ev('result_action', curPage, { act: (b.textContent || 'x').trim().toLowerCase().replace(/[^a-z]+/g, '_').slice(0, 14) }); }
+    }
+  }, true);
+  try {
+    const hp = document.createElement('input'); hp.type = 'text'; hp.name = 'website'; hp.tabIndex = -1; hp.autocomplete = 'off'; hp.setAttribute('aria-hidden', 'true');
+    hp.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;opacity:0';
+    hp.addEventListener('input', () => ev('honeypot', curPage)); document.body.appendChild(hp);
+  } catch { /* ignore */ }
   addEventListener('load', () => setTimeout(() => {
     try { const n = performance.getEntriesByType('navigation')[0], fcp = performance.getEntriesByName('first-contentful-paint')[0];
       ev('perf', 'home', { ttfb: Math.round(n ? n.responseStart : 0), fcp: Math.round(fcp ? fcp.startTime : 0) }); } catch { /* ignore */ }
@@ -172,6 +210,24 @@ export function bumpStreak() {
 // Result-screen extras: personal-best badge, streak line, and the opt-in compare strip.
 export function runExtras(game, set, improved) {
   const st = bumpStreak();
+  try {
+    const raw = ls.get('cogprep.progress.v1');
+    if (raw) {
+      const data = JSON.parse(raw);
+      const e = data?.games?.[game]?.[set];
+      if (e && e.bestAvg >= 0.7 && set < 5) {
+        const ukKey = 'cogprep.unlocked.v1';
+        let unlocked = {};
+        try { unlocked = JSON.parse(ls.get(ukKey) || '{}'); } catch {}
+        const tag = `${game}_s${set + 1}`;
+        if (!unlocked[tag]) {
+          unlocked[tag] = 1;
+          ls.set(ukKey, JSON.stringify(unlocked));
+          ev('set_unlock', game, { game, set: set + 1, runs: e.runs || 1 });
+        }
+      }
+    }
+  } catch { /* ignore */ }
   const box = el('div', { class: 'run-extras' });
   if (improved) box.append(el('p', { class: 'callout callout-ok', text: 'Personal best! New top score for this set.' }));
   box.append(el('p', { class: 'muted', text: `Streak: ${st.count} day${st.count === 1 ? '' : 's'} in a row (best ${st.best}). ${st.total} runs finished on this browser.` }));

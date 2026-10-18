@@ -6,7 +6,7 @@ CogPrep Arcade is an independent, free practice resource. It is not affiliated w
 
 ## Original work
 
-All game names (Block Slide, Latin Square, Grid Memory, Operator Switch, Digit Equation, Pattern Rule), rules wording, puzzles, code and visuals in this repository are original. Puzzles are produced by the generator in `tools/gen.mjs` and checked by the solver in `js/games/blockslide/solver.js`. No content, artwork, layouts or puzzles are copied from any real assessment.
+All game names (Block Slide, Latin Square, Grid Memory, Operator Switch, Digit Equation, Pattern Rule), rules wording, puzzles, code and visuals in this repository are original. Puzzles are produced by the generator in `tools/gen.mjs` and checked by solvers in each game module. No content, artwork, layouts or puzzles are copied from any real assessment.
 
 ## No guarantee
 
@@ -14,4 +14,10 @@ Practice scores are for self-study only. They do not predict, represent or repla
 
 ## Privacy
 
-The site has no accounts, cookies, analytics, trackers or third party requests. Progress and the play history behind the coach and the analytics page are stored only in the visitor's own browser (localStorage keys `cogprep.progress.v1` and `cogprep.attempts.v1`). Progress can be cleared from the Block Slide page, the history from the analytics page (after an optional JSON export), and both through browser settings. Exception: each finished timed run uploads game, set, score, solved count, duration and a random browser ID (and an optional nickname) to the leaderboard service. IP addresses are not stored and move logs are not uploaded. Page views are counted with the same random ID, page name, device class (mobile, tablet, desktop) and referring site hostname on first visit, to measure reach.
+The site has no user accounts, third-party trackers, or marketing cookies. Progress and local move history behind the coach and analytics views are stored strictly inside the visitor's browser (`localStorage`).
+
+To improve site usability and game balance, anonymous operational telemetry is collected via an internal, privacy-respecting endpoint:
+- **Leaderboard submissions:** Each completed timed run transmits game, set, score, puzzles solved, duration, and an anonymous client ID (`cid`), along with an optional nickname.
+- **Anonymous site usage:** Aggregated page views, session durations, browser family, operating system, coarse screen size, coarse timezone region, input modality (touch vs mouse), referrer domain, game selections, per-item solve/hint/skip outcomes, run abandonment points, outbound link clicks, web vitals (TTFB, LCP), and client script errors.
+- **Strict non-collection:** IP addresses are never written to disk or database logs. No personal names, email addresses, precise geographic coordinates, keystrokes, or raw pointer trajectories are recorded.
+- **Data control:** Visitors can clear their local play history and progress anytime via the Progress page or browser cache settings.
