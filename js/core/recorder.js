@@ -292,6 +292,8 @@ export function pruneEvents(data) {
 
 const runListeners = [];
 export function onRunSaved(fn) { runListeners.push(fn); }
+const attemptListeners = [];
+export function onAttemptSaved(fn) { attemptListeners.push(fn); }
 
 export function createRecorder(storage = defaultStorage(), { limits = LIMITS } = {}) {
   let readOnly = false;
@@ -368,7 +370,9 @@ export function createRecorder(storage = defaultStorage(), { limits = LIMITS } =
       if (!clean) return false;
       const data = load();
       upsert(data.attempts, clean);
-      return save(data);
+      const ok = save(data);
+      if (ok) for (const fn of attemptListeners) { try { fn(clean); } catch { /* never break play */ } }
+      return ok;
     },
     saveRun(run) {
       const clean = sanitizeRun(run);

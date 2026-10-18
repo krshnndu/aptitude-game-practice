@@ -1,7 +1,7 @@
 // Anonymous run upload and leaderboard client. Endpoint comes from endpoint.json (same origin) so the
 // tunnel URL can change without a code change. Failures are silent and retried later.
 import { el } from './dom.js';
-import { onRunSaved } from './recorder.js';
+import { onRunSaved, onAttemptSaved } from './recorder.js';
 
 const K_CID = 'cogprep.cid.v1', K_NICK = 'cogprep.nick.v1', K_Q = 'cogprep.queue.v1', K_CMP = 'cogprep.compare.v1';
 const ls = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* ignore */ } } };
@@ -32,6 +32,7 @@ async function flush() {
 }
 
 export function startBoard() {
+  startTelemetry();
   onRunSaved((run) => {
     const q = queue();
     q.push({ cid: cid(), nick: nick() || undefined, game: run.game, set: run.set, score: run.score, attempted: run.attempted, solved: run.solved, durationMs: run.durationMs });
@@ -94,16 +95,65 @@ export function mountBoard(main) {
   return () => {};
 }
 
-// Page-view tracking: random ID, page name, session, coarse device and referrer host only.
+// Anonymous telemetry: random ID, session, coarse device and behaviour events. No IP, no keystrokes.
 const SID = Math.random().toString(36).slice(2, 12);
-let firstHit = true;
-export async function track(page) {
+const VER = '2026-10-18';
+const K_SELF = 'cogprep.self.v1';
+const GAMES = ['blockslide', 'latinsquare', 'gridmemory', 'operatorswitch', 'digitequation', 'patternrule'];
+let firstHit = true, envSent = false, curPage = 'home', pageT0 = Date.now(), leftPage = false;
+const itemIdx = {};
+function envInfo() {
+  const ua = navigator.userAgent || '', w = innerWidth, touch = (navigator.maxTouchPoints || 0) > 0;
+  const mob = /Mobi|Android|iPhone|iPod/i.test(ua), tab = /iPad|Tablet/i.test(ua) || (/Macintosh/.test(ua) && touch);
+  const dev = tab ? 'tablet' : mob ? 'mobile' : (touch && Math.min(screen.width, screen.height) < 600 ? 'mobile' : 'desktop');
+  const br = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /SamsungBrowser/.test(ua) ? 'Samsung' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Other';
+  const os = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad|iPod/.test(ua) ? 'iOS' : /Mac OS/.test(ua) ? 'macOS' : /CrOS/.test(ua) ? 'ChromeOS' : /Linux/.test(ua) ? 'Linux' : 'Other';
+  let tz = ''; try { tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '').split('/')[0]; } catch { /* ignore */ }
+  return { dev, br, os, touch, sw: screen.width, sh: screen.height, lang: (navigator.language || '').slice(0, 12), tz, inp: touch ? 'touch' : 'mouse' };
+}
+const ENV = (() => { try { return envInfo(); } catch { return { dev: 'desktop' }; } })();
+export async function ev(name, page, extra = {}) {
   try {
     const b = await base(); if (!b) return;
-    const w = innerWidth, first = firstHit; firstHit = false;
-    let ref = ''; if (first && document.referrer) { try { const h = new URL(document.referrer).hostname; if (h !== location.hostname) ref = h; } catch { /* ignore */ } }
-    fetch(b + '/hit', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ cid: cid(), sid: SID, page: page || 'home', first, ref, dev: w < 600 ? 'mobile' : w < 1024 ? 'tablet' : 'desktop' }) }).catch(() => {});
+    const body = { cid: cid(), sid: SID, page: page || curPage || 'home', ev: name, dev: ENV.dev, v: VER, ...extra };
+    if (ls.get(K_SELF) === '1') body.self = true;
+    fetch(b + '/hit', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) }).catch(() => {});
   } catch { /* never break the site */ }
+}
+const retDays = () => { const k = 'cogprep.first.v1'; let f = Number(ls.get(k)); if (!f) { f = Date.now(); ls.set(k, String(f)); return 0; } return Math.min(3650, Math.floor((Date.now() - f) / 864e5)); };
+export function track(page) {
+  page = page || 'home';
+  if (!firstHit && !leftPage && curPage) ev('leave', curPage, { dur: Math.min(Date.now() - pageT0, 14400000) });
+  leftPage = false; curPage = page; pageT0 = Date.now();
+  const first = firstHit; firstHit = false;
+  let ref = '', utm = {};
+  if (first) {
+    if (document.referrer) { try { const h = new URL(document.referrer).hostname; if (h !== location.hostname) ref = h; } catch { /* ignore */ } }
+    try { const q = new URLSearchParams(location.search); utm = { us: q.get('utm_source') || '', um: q.get('utm_medium') || '', uc: q.get('utm_campaign') || '' }; } catch { /* ignore */ }
+  }
+  ev('view', page, { first, ref, ret: retDays(), ...(first ? utm : {}), ...(envSent ? {} : { br: ENV.br, os: ENV.os, sw: ENV.sw, sh: ENV.sh, lang: ENV.lang, tz: ENV.tz, touch: ENV.touch, inp: ENV.inp }) });
+  envSent = true;
+  if (GAMES.includes(page)) ev('game_start', page, { game: page });
+}
+
+let wired = false;
+export function startTelemetry() {
+  if (wired || typeof window === 'undefined') return; wired = true;
+  onAttemptSaved((a) => {
+    const rid = a.runId || a.id;
+    if (a.mode === 'exam' && !(rid in itemIdx)) ev('run_start', a.game, { game: a.game, set: a.set, mode: 'exam', rid: String(rid).slice(0, 20) });
+    const i = itemIdx[rid] = (itemIdx[rid] || 0) + 1;
+    ev('item', a.game, { game: a.game, set: a.set, mode: a.mode, rid: String(rid).slice(0, 20), i, ms: Math.round((a.metrics && a.metrics.totalMs) || 0), ok: a.outcome === 'solved', skip: a.outcome === 'skipped', hint: (a.hintsUsed || 0) > 0 });
+  });
+  onRunSaved((r) => ev('run_end', r.game, { game: r.game, set: r.set, mode: 'exam', rid: String(r.id).slice(0, 20), n: Math.round(r.attempted || 0), ms: Math.round(r.durationMs || 0) }));
+  addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && !leftPage) { leftPage = true; ev('leave', curPage, { dur: Math.min(Date.now() - pageT0, 14400000) }); } else if (document.visibilityState === 'visible' && leftPage) { leftPage = false; pageT0 = Date.now(); } });
+  document.addEventListener('click', (e) => { const a = e.target && e.target.closest && e.target.closest('a[href^="http"]'); if (a) { try { const u = new URL(a.href); if (u.hostname !== location.hostname) ev('link_click', curPage, { tgt: u.hostname.slice(0, 40) }); } catch { /* ignore */ } } }, true);
+  addEventListener('error', (e) => { ev('js_error', curPage, { name: String(e.message || 'error').replace(/[^A-Za-z0-9 ._]/g, '').slice(0, 24), src: String(e.filename || '').split('/').pop().slice(0, 40), line: e.lineno || 0 }); });
+  addEventListener('unhandledrejection', () => ev('js_error', curPage, { name: 'unhandledrejection' }));
+  addEventListener('load', () => setTimeout(() => {
+    try { const n = performance.getEntriesByType('navigation')[0], fcp = performance.getEntriesByName('first-contentful-paint')[0];
+      ev('perf', 'home', { ttfb: Math.round(n ? n.responseStart : 0), fcp: Math.round(fcp ? fcp.startTime : 0) }); } catch { /* ignore */ }
+  }, 1500));
 }
 
 // Streaks: consecutive calendar days with at least one finished run. Stored locally only.
