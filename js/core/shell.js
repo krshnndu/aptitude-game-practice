@@ -9,6 +9,7 @@ import { mountOperatorSwitch } from '../games/operatorswitch/play.js';
 import { mountDigitEquation } from '../games/digitequation/play.js';
 import { mountPatternRule } from '../games/patternrule/play.js';
 import { mountAnalytics } from './analytics-page.js';
+import { startBoard, mountBoard } from './board.js';
 
 const MOUNTS = { blockslide: mountBlockSlide, latinsquare: mountLatinSquare, gridmemory: mountGridMemory, operatorswitch: mountOperatorSwitch, digitequation: mountDigitEquation, patternrule: mountPatternRule };
 
@@ -115,7 +116,7 @@ function renderAbout(main) {
       el('h2', { text: 'No guarantee' }),
       el('p', {}, 'Practice scores are for self-study only and do not predict or represent results in any real assessment.'),
       el('h2', { text: 'Privacy' }),
-      el('p', {}, 'There are no accounts, cookies, trackers or network calls beyond loading the site. Progress and your play history (the move log behind the coach and the analytics page) are saved only in your browser (localStorage). You can export, import or clear the history on the analytics page, or clear everything with your browser settings.'),
+      el('p', {}, 'There are no accounts, cookies or trackers. Your move log and progress are saved in your browser (localStorage). When you finish a timed run, its score summary (game, set, score, puzzles solved, duration) is uploaded with a random ID stored in your browser, plus a nickname if you chose one, to power the leaderboard. No IP address is stored and no move log is uploaded. You can export, import or clear the history on the analytics page, or clear everything with your browser settings.'),
     ),
   );
 }
@@ -149,6 +150,7 @@ async function route() {
     if (!page) renderHome(main);
     else if (page === 'about') renderAbout(main);
     else if (page === 'analytics') cleanup = mountAnalytics(main);
+    else if (page === 'board') cleanup = mountBoard(main);
     else if (MOUNTS[page]) {
       const dispose = await MOUNTS[page](main, rest);
       // A newer navigation happened while loading: drop this view.
@@ -160,13 +162,14 @@ async function route() {
     console.error(err);
     main.replaceChildren(el('p', { class: 'notice' }, `Something went wrong: ${err.message}`));
   }
-  const titles = { blockslide: 'Block Slide', latinsquare: 'Latin Square', gridmemory: 'Grid Memory', operatorswitch: 'Operator Switch', digitequation: 'Digit Equation', patternrule: 'Pattern Rule', about: 'About', analytics: 'Progress and analytics' };
+  const titles = { blockslide: 'Block Slide', latinsquare: 'Latin Square', gridmemory: 'Grid Memory', operatorswitch: 'Operator Switch', digitequation: 'Digit Equation', patternrule: 'Pattern Rule', about: 'About', analytics: 'Progress and analytics', board: 'Leaderboard' };
   document.title = `${titles[page] ?? 'Games'} | CogPrep Arcade`;
   window.scrollTo(0, 0);
 }
 
 if (typeof window !== 'undefined') {
   window.addEventListener('hashchange', route);
+  startBoard();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', route);
   else route();
 }
