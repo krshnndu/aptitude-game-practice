@@ -9,7 +9,7 @@ import { mountOperatorSwitch } from '../games/operatorswitch/play.js';
 import { mountDigitEquation } from '../games/digitequation/play.js';
 import { mountPatternRule } from '../games/patternrule/play.js';
 import { mountAnalytics } from './analytics-page.js';
-import { startBoard, mountBoard } from './board.js';
+import { startBoard, mountBoard, track } from './board.js';
 
 const MOUNTS = { blockslide: mountBlockSlide, latinsquare: mountLatinSquare, gridmemory: mountGridMemory, operatorswitch: mountOperatorSwitch, digitequation: mountDigitEquation, patternrule: mountPatternRule };
 
@@ -116,7 +116,7 @@ function renderAbout(main) {
       el('h2', { text: 'No guarantee' }),
       el('p', {}, 'Practice scores are for self-study only and do not predict or represent results in any real assessment.'),
       el('h2', { text: 'Privacy' }),
-      el('p', {}, 'There are no accounts, cookies or trackers. Your move log and progress are saved in your browser (localStorage). When you finish a timed run, its score summary (game, set, score, puzzles solved, duration) is uploaded with a random ID stored in your browser, plus a nickname if you chose one, to power the leaderboard. No IP address is stored and no move log is uploaded. You can export, import or clear the history on the analytics page, or clear everything with your browser settings.'),
+      el('p', {}, 'There are no accounts, cookies or trackers. Your move log and progress are saved in your browser (localStorage). When you finish a timed run, its score summary (game, set, score, puzzles solved, duration) is uploaded with a random ID stored in your browser, plus a nickname if you chose one, to power the leaderboard. Page views are also counted (page name, random ID, device class, and the referring site name on first visit) to measure reach; no IP address is stored. No IP address is stored and no move log is uploaded. You can export, import or clear the history on the analytics page, or clear everything with your browser settings.'),
     ),
   );
 }
@@ -163,6 +163,7 @@ async function route() {
     main.replaceChildren(el('p', { class: 'notice' }, `Something went wrong: ${err.message}`));
   }
   const titles = { blockslide: 'Block Slide', latinsquare: 'Latin Square', gridmemory: 'Grid Memory', operatorswitch: 'Operator Switch', digitequation: 'Digit Equation', patternrule: 'Pattern Rule', about: 'About', analytics: 'Progress and analytics', board: 'Leaderboard' };
+  track(page);
   document.title = `${titles[page] ?? 'Games'} | CogPrep Arcade`;
   window.scrollTo(0, 0);
 }

@@ -93,3 +93,15 @@ export function mountBoard(main) {
   load();
   return () => {};
 }
+
+// Page-view tracking: random ID, page name, session, coarse device and referrer host only.
+const SID = Math.random().toString(36).slice(2, 12);
+let firstHit = true;
+export async function track(page) {
+  try {
+    const b = await base(); if (!b) return;
+    const w = innerWidth, first = firstHit; firstHit = false;
+    let ref = ''; if (first && document.referrer) { try { const h = new URL(document.referrer).hostname; if (h !== location.hostname) ref = h; } catch { /* ignore */ } }
+    fetch(b + '/hit', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ cid: cid(), sid: SID, page: page || 'home', first, ref, dev: w < 600 ? 'mobile' : w < 1024 ? 'tablet' : 'desktop' }) }).catch(() => {});
+  } catch { /* never break the site */ }
+}
