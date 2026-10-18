@@ -136,3 +136,16 @@ p .tag-chip { display: inline-flex; margin: 0 4px 4px 0; cursor: default; }
 .dvs-table tr.dvs-first .badge { margin-left: 6px; }
 .dvs-run details { border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 10px; margin: 6px 0; background: var(--card); }
 .dvs-run summary { cursor: pointer; font-weight: 600; }
+
+/* Flexible exit and learning focus: End and review, takeaways, not attempted, resume card, study mode */
+.btn-end { border-color: var(--muted); }
+.exam-hud .btn-end { margin-left: auto; }
+.partial-banner .score-tiles { margin-top: 8px; }
+.takeaways { margin: 16px 0; }
+.takeaway-list { padding-left: 1.4em; }
+.takeaway-list li { margin: 6px 0; }
+.not-attempted, .study-list { margin: 16px 0; }
+.study-item { border: 1px solid var(--line, #ccc); border-radius: 8px; padding: 6px 10px; margin: 6px 0; }
+.study-item > summary { cursor: pointer; font-weight: 600; }
+.resume-card { margin: 16px 0; }
+.resume-card .section-title { margin-top: 0; }

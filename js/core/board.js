@@ -3,6 +3,7 @@
 import { el } from './dom.js';
 import { onRunSaved, onAttemptSaved } from './recorder.js';
 import { dvsTelemetry } from './dvs.js';
+import { isPartial } from './partial.js';
 
 const K_CID = 'cogprep.cid.v1', K_NICK = 'cogprep.nick.v1', K_Q = 'cogprep.queue.v1', K_CMP = 'cogprep.compare.v1';
 const ls = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* ignore */ } } };
@@ -35,6 +36,8 @@ async function flush() {
 export function startBoard() {
   startTelemetry();
   onRunSaved((run) => {
+    // Ended-early runs stay local: never on the leaderboard, never ranked.
+    if (isPartial(run)) return;
     const q = queue();
     q.push({ cid: cid(), nick: nick() || undefined, game: run.game, set: run.set, score: run.score, attempted: run.attempted, solved: run.solved, durationMs: run.durationMs });
     ls.set(K_Q, JSON.stringify(q.slice(-50)));
@@ -155,7 +158,7 @@ export function startTelemetry() {
     const i = itemIdx[rid] = (itemIdx[rid] || 0) + 1;
     ev('item', a.game, itemExtra(a, rid, i));
   });
-  onRunSaved((r) => { activeRun = null; lastEnd = Date.now(); ev('run_end', r.game, { game: r.game, set: r.set, mode: 'exam', rid: String(r.id).slice(0, 20), n: Math.round(r.attempted || 0), ms: Math.round(r.durationMs || 0) }); });
+  onRunSaved((r) => { activeRun = null; lastEnd = Date.now(); ev('run_end', r.game, { game: r.game, set: r.set, mode: 'exam', rid: String(r.id).slice(0, 20), n: Math.round(r.attempted || 0), ms: Math.round(r.durationMs || 0), ...(isPartial(r) ? { part: 1, exit: r.exit || 'early' } : {}) }); });
   addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && !leftPage) { leftPage = true; ev('leave', curPage, { dur: Math.min(Date.now() - pageT0, 14400000) }); } else if (document.visibilityState === 'visible' && leftPage) { leftPage = false; pageT0 = Date.now(); } });
   document.addEventListener('click', (e) => { const a = e.target && e.target.closest && e.target.closest('a[href^="http"]'); if (a) { try { const u = new URL(a.href); if (u.hostname !== location.hostname) ev('link_click', curPage, { tgt: u.hostname.slice(0, 40) }); } catch { /* ignore */ } } }, true);
   addEventListener('error', (e) => { ev('js_error', curPage, { name: String(e.message || 'error').replace(/[^A-Za-z0-9 ._]/g, '').slice(0, 24), src: String(e.filename || '').split('/').pop().slice(0, 40), line: e.lineno || 0 }); });
@@ -216,7 +219,8 @@ export function bumpStreak() {
 }
 
 // Result-screen extras: personal-best badge, streak line, and the opt-in compare strip.
-export function runExtras(game, set, improved) {
+// partial: an ended-early run, which is not uploaded, so it gets no rank or percentile.
+export function runExtras(game, set, improved, { partial = false } = {}) {
   const st = bumpStreak();
   try {
     const raw = ls.get('cogprep.progress.v1');
@@ -240,6 +244,7 @@ export function runExtras(game, set, improved) {
   if (improved) box.append(el('p', { class: 'callout callout-ok', text: 'Personal best! New top score for this set.' }));
   box.append(el('p', { class: 'muted', text: `Streak: ${st.count} day${st.count === 1 ? '' : 's'} in a row (best ${st.best}). ${st.total} runs finished on this browser.` }));
   const slot = el('div', {}); box.append(slot);
-  if (compareOn()) setTimeout(async () => { const n = await compareStrip(game, set); if (n) slot.replaceChildren(n); }, 2500);
+  if (partial) slot.append(el('p', { class: 'muted small', text: 'Runs ended early count toward your progress, streak and review, but are not uploaded to the leaderboard or ranked.' }));
+  else if (compareOn()) setTimeout(async () => { const n = await compareStrip(game, set); if (n) slot.replaceChildren(n); }, 2500);
   return box;
 }

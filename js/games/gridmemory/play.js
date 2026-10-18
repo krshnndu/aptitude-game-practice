@@ -15,6 +15,7 @@ import { explainTrial, questionText, answerWord, OP_TEXT, STRATEGY, landmark } f
 import { coachTrial, coachRun } from './coach.js';
 import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry, stampDvs } from '../../core/learn-hooks.js';
 import { dvsPanel, dvsRunSection } from '../../core/dvs-ui.js';
+import { endButton, guardRun, saveEndedRun, isLeave, isPartial, partialBanner, runLearning, studyLink, resume } from '../../core/endrun-ui.js';
 import { reviewAttempt } from './coach.js';
 import { buildAttempt, GAME_ID } from './record.js';
 
@@ -410,6 +411,13 @@ function createTrialArea(puzzle, opts) {
     focus() {
       (trial.phase === 'ready' && !opts.autoStart ? startBtn : stage).focus?.({ preventScroll: true });
     },
+    // End and review or leaving in practice: close the trial as skipped without calling onDone.
+    forceSkip() {
+      clearTimers();
+      trial.skip(now());
+      render();
+      return trial;
+    },
     // The run clock ended: close the trial as a time-out without calling onDone.
     forceTimeout() {
       clearTimers();
@@ -472,12 +480,14 @@ function pathOverlay(puzzle, recall, positions, { showCorrect = true, showYours 
   return s;
 }
 
+// trial null: study mode. Nothing was played, so only the correct sequence and side answers show.
 function createExplainPanel(puzzle, trial) {
-  const result = trial.result();
-  const ex = explainTrial(puzzle, result, trial.answers);
-  const recall = trial.recall;
-  const holder = el('div', { class: 'gm-overlay-wrap', role: 'img', 'aria-label': `Correct order: ${puzzle.sequence.map((c, i) => `${i + 1} ${cellLabel(puzzle.n, c)}`).join(', ')}. Your order: ${recall.length ? recall.map((c, i) => `${i + 1} ${cellLabel(puzzle.n, c)}`).join(', ') : 'nothing entered'}.` });
-  const layers = { showCorrect: true, showYours: true };
+  const study = !trial;
+  const result = study ? createTrial(puzzle, { mode: 'practice' }).result() : trial.result();
+  const ex = explainTrial(puzzle, result, study ? [] : trial.answers);
+  const recall = study ? [] : trial.recall;
+  const holder = el('div', { class: 'gm-overlay-wrap', role: 'img', 'aria-label': `Correct order: ${puzzle.sequence.map((c, i) => `${i + 1} ${cellLabel(puzzle.n, c)}`).join(', ')}.${study ? '' : ` Your order: ${recall.length ? recall.map((c, i) => `${i + 1} ${cellLabel(puzzle.n, c)}`).join(', ') : 'nothing entered'}.`}` });
+  const layers = { showCorrect: true, showYours: !study };
   const draw = () => holder.replaceChildren(pathOverlay(puzzle, recall, ex.positions, layers));
   const toggle = (key, label) => {
     const id = `gm-layer-${key}-${Math.random().toString(36).slice(2, 7)}`;
@@ -487,25 +497,27 @@ function createExplainPanel(puzzle, trial) {
   };
   draw();
 
-  const badge = result.outcome !== 'submitted'
+  const badge = study ? null : result.outcome !== 'submitted'
     ? el('span', { class: 'badge badge-warn', text: result.outcome === 'skipped' ? 'Skipped' : 'Time up' })
     : el('span', { class: `badge ${result.efficiency >= 1 ? 'badge-ok' : result.efficiency >= UNLOCK_THRESHOLD ? 'badge-mid' : 'badge-warn'}`, text: pct(result.efficiency) });
 
   return el('section', { class: 'explain gm-explain', 'aria-label': 'How to solve this trial' },
-    el('div', { class: 'result-line' }, badge, el('p', { text: ex.summary })),
-    el('h3', { text: 'The sequence and your answer' }),
+    study
+      ? el('p', { class: 'muted', text: `${puzzle.length} cells to remember, with a side question after each.` })
+      : el('div', { class: 'result-line' }, badge, el('p', { text: ex.summary })),
+    el('h3', { text: study ? 'The sequence' : 'The sequence and your answer' }),
     el('div', { class: 'explain-body' },
       el('div', { class: 'explain-board' },
         holder,
         el('div', { class: 'gm-legend' },
           el('span', {}, el('span', { class: 'gm-key gm-key-dot', 'aria-hidden': 'true' }), ' Circles, solid line: correct order'),
-          el('span', {}, el('span', { class: 'gm-key gm-key-sq', 'aria-hidden': 'true' }), ' Squares, dashed line: your taps (cross = wrong)'),
+          study ? null : el('span', {}, el('span', { class: 'gm-key gm-key-sq', 'aria-hidden': 'true' }), ' Squares, dashed line: your taps (cross = wrong)'),
         ),
-        el('div', { class: 'replay-controls' }, toggle('showCorrect', 'Correct path'), toggle('showYours', 'Your taps')),
+        study ? null : el('div', { class: 'replay-controls' }, toggle('showCorrect', 'Correct path'), toggle('showYours', 'Your taps')),
       ),
       el('div', { class: 'explain-steps' },
-        el('p', { class: 'step-reason', text: ex.divergence }),
-        el('div', { class: 'table-wrap' },
+        study ? null : el('p', { class: 'step-reason', text: ex.divergence }),
+        study ? null : el('div', { class: 'table-wrap' },
           el('table', { class: 'results gm-positions' },
             el('caption', { class: 'sr-only', text: 'Recall by position' }),
             el('thead', {}, el('tr', {}, ['#', 'Correct', 'You', 'Result'].map((h) => el('th', { scope: 'col', text: h })))),
@@ -525,18 +537,18 @@ function createExplainPanel(puzzle, trial) {
     el('div', { class: 'table-wrap' },
       el('table', { class: 'results gm-sides' },
         el('caption', { class: 'sr-only', text: 'Side questions with answers and reasons' }),
-        el('thead', {}, el('tr', {}, ['#', 'Question', 'Answer', 'You', 'Time', 'Why'].map((h) => el('th', { scope: 'col', text: h })))),
+        el('thead', {}, el('tr', {}, (study ? ['#', 'Question', 'Answer', 'Why'] : ['#', 'Question', 'Answer', 'You', 'Time', 'Why']).map((h) => el('th', { scope: 'col', text: h })))),
         el('tbody', {}, ex.side.map((r) => el('tr', {},
           el('td', { text: String(r.i + 1) }),
           el('td', { text: r.question }),
           el('td', { text: answerWord(r.correct) }),
-          el('td', {}, r.given === null ? 'not reached' : el('span', { class: `badge ${r.ok ? 'badge-ok' : 'badge-warn'}`, text: `${answerWord(r.given)}${r.ok ? '' : ' (wrong)'}` })),
-          el('td', { text: r.given && r.given !== 'miss' ? fmtSec(r.rt) : '' }),
+          study ? null : el('td', {}, r.given === null ? 'not reached' : el('span', { class: `badge ${r.ok ? 'badge-ok' : 'badge-warn'}`, text: `${answerWord(r.given)}${r.ok ? '' : ' (wrong)'}` })),
+          study ? null : el('td', { text: r.given && r.given !== 'miss' ? fmtSec(r.rt) : '' }),
           el('td', { text: r.reason }),
         ))),
       ),
     ),
-    el('details', { class: 'strategy', open: true },
+    study ? null : el('details', { class: 'strategy', open: true },
       el('summary', {}, 'Memory tips for this trial'),
       el('ul', {}, ex.tips.map((t) => el('li', { text: t }))),
     ),
@@ -655,6 +667,7 @@ function setCard(cfg) {
       ? el('div', { class: 'set-actions' },
         el('div', { class: 'chips', role: 'group', 'aria-label': `Practice trials in set ${cfg.set}` }, chips),
         el('a', { class: 'btn btn-primary', href: `#/gridmemory/run/${cfg.set}` }, 'Start timed run (6:00)'),
+        studyLink(GAME_ID, cfg.set),
       )
       : el('p', { class: 'muted', text: `Reach ${pct(UNLOCK_THRESHOLD)} average in set ${cfg.set - 1} (timed run, or practice bests across all its trials) to unlock, or tick Unlock all sets.` }),
   );
@@ -691,6 +704,24 @@ async function renderPractice(ctx, setNo, k, retry = null) {
   let area = null;
   let startedAt = 0;
 
+  // A trial that was started but not finished is saved as skipped (End and review, leaving).
+  function saveUnfinished() {
+    if (retry || !area || !startedAt || area.trial.phase === 'ready' || area.trial.done) return false;
+    const attempt = buildAttempt(area.forceSkip(), { set: setNo, mode: 'practice', source: relaxedPractice ? 'relaxed' : 'pool', startedAt });
+    stampDvs(GAME_ID, attempt, puzzle);
+    recorder.saveAttempt(attempt);
+    noteAttempt(GAME_ID, attempt, [], puzzle);
+    return true;
+  }
+  function leave() {
+    if (saveUnfinished()) resume().save({ game: GAME_ID, kind: 'practice', set: setNo, k });
+  }
+  function endPractice() {
+    saveUnfinished();
+    resume().clear(GAME_ID, 'practice');
+    location.hash = `#/review/${GAME_ID}/practice/${setNo}`;
+  }
+
   const relaxedBox = el('input', {
     type: 'checkbox',
     id: 'gm-relaxed',
@@ -718,6 +749,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
     const attempt = buildAttempt(trial, { set: setNo, mode: 'practice', source: retry ? 'review' : relaxedPractice ? 'relaxed' : 'pool', startedAt: startedAt || Date.now() });
     stampDvs(GAME_ID, attempt, puzzle);
     recorder.saveAttempt(attempt);
+    resume().clear(GAME_ID, 'practice');
     if (retry) {
       // Retrieval first: grade and reschedule now, compare with the optimal solution on the review page.
       completeRetry(GAME_ID, attempt);
@@ -749,13 +781,19 @@ async function renderPractice(ctx, setNo, k, retry = null) {
       el('h1', {}, retry ? 'Review: solve it again before you look' : `Practice: trial ${k} of ${PUZZLES_PER_SET}`),
       el('p', { class: 'muted' }, `${puzzle.length} cells on a ${cfg.n}x${cfg.n} grid. No run clock in practice mode.`),
       el('label', { class: 'toggle', for: 'gm-relaxed' }, relaxedBox, ' Relaxed: no time limit on side questions'),
+      retry ? null : el('div', { class: 'after-actions' }, endButton({ game: GAME_ID, practice: true, onEnd: endPractice }), studyLink(GAME_ID, setNo)),
     ),
     host,
     after,
     el('div', { class: 'after-actions' }, prevLink, el('a', { class: 'btn btn-quiet', href: nextHref }, retry ? 'Back to the review' : nextLabel)),
   );
   start();
-  ctx.onDispose(() => area?.destroy());
+  const unguard = guardRun({ onLeave: leave });
+  ctx.onDispose(() => {
+    unguard();
+    leave();
+    area?.destroy();
+  });
 }
 
 // ---------------------------------------------------------------- timed run (exam mode)
@@ -792,6 +830,7 @@ async function renderRun(ctx, setNo) {
   let runSeed = 0;
   let runId = null;
   let startedAt = 0;
+  let unguard = null;
   const results = [];
   ctx.onDispose(() => {
     timer?.stop();
@@ -836,7 +875,8 @@ async function renderRun(ctx, setNo) {
         el('li', {}, el('strong', { text: 'Staircase. ' }), `The first trial has ${cfg.lengths[0]} cells. Pass (every position right, at most 1 side error) and the next is 1 longer; otherwise 1 shorter. Your span is the longest length you pass.`),
         el('li', {}, el('strong', { text: 'Score: ' }), `${POINTS.recall} points per position in the right place, ${POINTS.side} per side question right, as a share of the maximum. The run score is the sum.`),
         el('li', {}, el('strong', { text: 'Skip is final. ' }), 'A skipped trial scores 0 and counts as a miss; a best guess always scores at least as much.'),
-        el('li', {}, el('strong', { text: 'Pace: ' }), `a ${cfg.lengths[0]}-cell trial takes about ${sec} s. Leaving this page mid-run ends it without a run score.`),
+        el('li', {}, el('strong', { text: 'Pace: ' }), `a ${cfg.lengths[0]}-cell trial takes about ${sec} s.`),
+        el('li', {}, el('strong', { text: 'Afterwards: ' }), 'the coach reviews every trial and the whole run. End and review stops the run at any point and shows your score so far; leaving the page saves it the same way. Runs ended early count toward progress and review but not the leaderboard.'),
       ),
       el('h3', { text: 'Try the sample trial (untimed, not scored)' }),
       el('p', { class: 'muted', text: 'This is the exact exam screen: grid, side questions, clock and Skip.' }),
@@ -859,8 +899,20 @@ async function renderRun(ctx, setNo) {
   const announcer = el('p', { class: 'sr-only', 'aria-live': 'assertive' });
   const host = el('div', {});
   const flash = el('p', { class: 'flash', role: 'status' });
+  const endBtn = endButton({ game: GAME_ID, onEnd: (exit) => finish(exit) });
   let warned60 = false;
   let warned10 = false;
+
+  function buildRun() {
+    const run = summarizeRun({ id: runId, game: GAME_ID, set: setNo, seed: runSeed, startedAt, endedAt: Date.now(), budgetMs: RUN_MS, attempts: results.map((r) => r.attempt) });
+    run.maxSpan = staircase.maxSpan;
+    run.trail = staircase.trail;
+    return run;
+  }
+  // Tab hidden mid-run: keep a silent partial copy in case the browser never comes back.
+  function checkpoint() {
+    if (!finished && startedAt) saveEndedRun({ recorder, run: buildRun(), exit: 'hidden' });
+  }
 
   function begin() {
     tutorialArea?.destroy();
@@ -872,7 +924,12 @@ async function renderRun(ctx, setNo) {
     startedAt = Date.now();
     staircase = createStaircase({ start: cfg.lengths[0], max: cfg.runMax });
     source = createRunSource({ puzzles: data.puzzles, cfg, seed: runSeed });
-    body.replaceChildren(el('div', { class: 'exam-hud' }, clock, progress, hudSlot), flash, announcer, host);
+    unguard = guardRun({ onLeave: (exit) => finish(exit), onHide: checkpoint });
+    // Registered after the page disposer, so it runs first: a route change mid-run saves it.
+    ctx.onDispose(() => {
+      if (!finished) finish('nav');
+    });
+    body.replaceChildren(el('div', { class: 'exam-hud' }, clock, progress, hudSlot, endBtn), flash, announcer, host);
     timer = new Countdown(RUN_MS, {
       onTick: (left) => {
         clock.textContent = formatClock(left);
@@ -921,21 +978,21 @@ async function renderRun(ctx, setNo) {
     advanceHandle = setTimeout(showNext, 700);
   }
 
-  function finish() {
+  // exit: 'time' (clock ran out), 'early' (End and review), 'nav' or 'unload' (left the page).
+  function finish(exit = 'time') {
     if (finished) return;
     finished = true;
     clearTimeout(advanceHandle);
     timer?.stop();
-    if (area && current && !current.done) record(area.forceTimeout());
+    unguard?.();
+    // Ended early: a trial that had not started yet counts as not attempted.
+    if (area && current && !current.done && (exit === 'time' || area.trial.phase !== 'ready')) record(area.forceTimeout());
     area?.destroy();
     area = null;
     setExamChrome(false);
     head.hidden = false;
 
-    const run = summarizeRun({ id: runId, game: GAME_ID, set: setNo, seed: runSeed, startedAt, endedAt: Date.now(), budgetMs: RUN_MS, attempts: results.map((r) => r.attempt) });
-    run.maxSpan = staircase.maxSpan;
-    run.trail = staircase.trail;
-    recorder.saveRun(run);
+    const run = saveEndedRun({ recorder, run: buildRun(), exit });
     const slots = Math.max(PUZZLES_PER_SET, results.length);
     const avg = averageEfficiency(run.score, slots);
     const wasOpen = setNo < SET_CONFIGS.length ? isUnlocked(setNo + 1) : true;
@@ -943,9 +1000,16 @@ async function renderRun(ctx, setNo) {
     const nowOpen = setNo < SET_CONFIGS.length ? isUnlocked(setNo + 1) : true;
 
     const puzzlesById = new Map(results.map((r) => [r.puzzle.id, r.puzzle]));
+    // Leaving the page: save to the review library without the coach, and render nothing.
+    if (isLeave(exit)) {
+      noteRun(GAME_ID, run, results.map((r) => r.attempt), [], puzzlesById);
+      return;
+    }
     const history = recorder.attempts({ game: GAME_ID, set: setNo });
     const runCoach = coachRun(run, results.map((r) => r.attempt), puzzlesById, { budgetMs: RUN_MS, history });
     noteRun(GAME_ID, run, results.map((r) => r.attempt), runCoach.perTrial, puzzlesById);
+    const partial = isPartial(run);
+    const [takeawaysNode, notAttemptedNode] = runLearning({ game: GAME_ID, run, attempts: results.map((r) => r.attempt), habits: runCoach.habits, perPuzzle: runCoach.perTrial, pool: data.puzzles, solve: studyWalkthrough, onDispose: ctx.onDispose, label: 'trial' });
 
     const review = el('div', { class: 'review-host' });
     const rows = results.map((r) => {
@@ -977,7 +1041,8 @@ async function renderRun(ctx, setNo) {
 
     body.replaceChildren(
       el('section', { class: 'run-summary' },
-        el('h2', { text: 'Time is up' }),
+        el('h2', { text: partial ? 'Run ended early' : 'Time is up' }),
+        partialBanner(run, { label: 'trial' }),
         el('div', { class: 'score-tiles' },
           el('div', { class: 'tile' }, el('span', { class: 'tile-label', text: 'Span reached' }), el('strong', { text: run.maxSpan ? String(run.maxSpan) : 'none' })),
           el('div', { class: 'tile' }, el('span', { class: 'tile-label', text: 'Run score' }), el('strong', { text: round2(run.score).toFixed(2) })),
@@ -988,7 +1053,8 @@ async function renderRun(ctx, setNo) {
           run.trail.map((s) => el('li', { class: s.success ? 'is-pass' : 'is-miss', style: { '--len': s.length } },
             el('span', { class: 'gm-trail-bar', 'aria-hidden': 'true' }),
             el('span', { class: 'gm-trail-label', text: `${s.length} ${s.success ? 'pass' : 'miss'}` })))),
-        runExtras(GAME_ID, setNo, improved),
+        runExtras(GAME_ID, setNo, improved, { partial }),
+        takeawaysNode,
         !wasOpen && nowOpen ? el('p', { class: 'callout callout-ok', text: `Set ${setNo + 1} unlocked. Nice work.` }) : null,
         avg < UNLOCK_THRESHOLD && setNo < SET_CONFIGS.length && !nowOpen
           ? el('p', { class: 'callout', text: `Reach ${pct(UNLOCK_THRESHOLD)} average (score / ${slots}) to unlock set ${setNo + 1}.` })
@@ -1011,8 +1077,10 @@ async function renderRun(ctx, setNo) {
           ),
         ),
         dvsRunSection(GAME_ID, results.map((r) => ({ attempt: r.attempt, puzzle: r.puzzle }))),
+        notAttemptedNode,
         el('div', { class: 'after-actions' },
           el('button', { type: 'button', class: 'btn btn-primary', onclick: () => ctx.rerender() }, 'Run again'),
+          studyLink(GAME_ID, setNo),
           el('a', { class: 'btn', href: '#/analytics' }, 'Progress and analytics'),
           el('a', { class: 'btn', href: '#/gridmemory' }, 'Back to sets'),
         ),
@@ -1039,6 +1107,12 @@ function renderRetry(ctx) {
 export function reviewWalkthrough(puzzle, attempt) {
   const r = reviewAttempt(attempt, puzzle);
   return createExplainPanel(puzzle, { result: () => r.result, answers: r.log.answers, recall: r.log.recall, hinted: r.log.hinted });
+}
+
+// Study mode: the sequence and side answers for a trial nobody played yet (no result line).
+export function studyWalkthrough(puzzle, onDispose = () => {}) {
+  void onDispose;
+  return createExplainPanel(puzzle, null);
 }
 
 // ---------------------------------------------------------------- entry

@@ -1,7 +1,8 @@
 import { mountAdmin } from './admin.js';
 import { ev } from './board.js';
 // Site shell: hash router, home page game cards and the about page. Learning routes:
-// #/achievements, #/report/<game>[/snapshot/<id>], #/review/<game>[/<attemptId>], #/review/today.
+// #/achievements, #/report/<game>[/snapshot/<id>], #/review/<game>[/<attemptId>], #/review/today,
+// #/review/<game>/run/<runId>, #/review/<game>/practice/<set> and study mode #/study/<game>/<set>.
 // A query after the hash (#/review/blockslide?filter=wasted) or before it (?print=1) reaches the page.
 // Each route renders into <main>; a route may return a cleanup function (timers, key handlers).
 
@@ -19,6 +20,8 @@ import { mountAchievements } from './achievements-page.js';
 import { mountReport } from './report-page.js';
 import { mountReview } from './review-page.js';
 import { loadContext, tierChip, refreshNavChip } from './learn-ui.js';
+import { mountStudy } from './study-page.js';
+import { resumeCard } from './endrun-ui.js';
 
 const MOUNTS = { blockslide: mountBlockSlide, latinsquare: mountLatinSquare, gridmemory: mountGridMemory, operatorswitch: mountOperatorSwitch, digitequation: mountDigitEquation, patternrule: mountPatternRule };
 
@@ -40,6 +43,15 @@ function learningStrip() {
   }
 }
 
+function safeNode(fn) {
+  try {
+    return fn();
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+}
+
 function renderHome(main) {
   const strip = learningStrip();
   const due = strip.ctx?.due ?? {};
@@ -51,6 +63,7 @@ function renderHome(main) {
         'Every puzzle has a computer-verified optimal solution, replayed step by step with the reasoning behind each move.'),
     ),
     strip.node,
+    safeNode(resumeCard),
     el('h2', { class: 'section-title', text: 'Games' }),
     el('ul', { class: 'card-grid', role: 'list' },
       GAMES.map((g) =>
@@ -81,7 +94,8 @@ function renderHome(main) {
       el('h2', { class: 'section-title', text: 'How to use this site' }),
       el('ul', {},
         el('li', {}, el('strong', { text: 'Practice mode: ' }), 'one puzzle at a time, no clock, hints available.'),
-        el('li', {}, el('strong', { text: 'Timed run: ' }), 'exam mode, like the real format: 6 minutes, puzzles keep coming, no undo or hints, solve or skip and move on.'),
+        el('li', {}, el('strong', { text: 'Timed run: ' }), 'exam mode, like the real format: 6 minutes, puzzles keep coming, no undo or hints, solve or skip and move on. End and review stops a run at any point and shows your score so far; leaving the page saves it the same way.'),
+        el('li', {}, el('strong', { text: 'Study mode: ' }), 'browse every puzzle in a set with its solution walkthrough. No timer, not scored.'),
         el('li', {}, el('strong', { text: 'Coach: ' }), 'after each puzzle and each run, findings computed from your own moves: wasted moves, thinking time, where you left the optimal line, skip timing.'),
         el('li', {}, el('strong', { text: 'Analytics: ' }), 'score trend per run, jumps, efficiency per set, personal bests, with a JSON backup of your history.'),
         el('li', {}, el('strong', { text: 'Review and reports: ' }), 'failed or inefficient puzzles go to a mistake notebook and come back on a 1, 3, 7, 14, 30 day schedule. Retry them blind first, then compare with the optimal solution. Each game has a learning report with error trends and a strategy cheat sheet.'),
@@ -103,7 +117,7 @@ function renderAbout(main) {
       el('h2', { text: 'No guarantee' }),
       el('p', {}, 'Practice scores are for self-study only and do not predict or represent results in any real assessment.'),
       el('h2', { text: 'Privacy' }),
-      el('p', {}, 'There are no accounts, cookies or trackers. Your move log and progress are saved in your browser (localStorage). When you finish a timed run, its score summary (game, set, score, puzzles solved, duration) is uploaded with a random ID stored in your browser, plus a nickname if you chose one, to power the leaderboard. Anonymous usage is also recorded to improve the site: pages viewed, time on page, browser and operating system, screen size, language, broad timezone region, device class, referring site, which games and sets you open, per-puzzle results (solved, skipped, hint used, time taken, and short did vs should codes: your answer and the correct answer as game codes, the step where you first diverged and the time to it), learning page use (achievements viewed or unlocked, reports viewed, review library opened and retries completed), where runs are abandoned, outbound link clicks, and page load speed or script errors. All of it is tied only to a random ID stored in your browser. No IP address, name, email, location, keystrokes, move log or note text is stored. The learning layer (review notebook, your notes, achievements, report snapshots and the did vs should record kept with each attempt) stays in your browser and is never uploaded. You can export, import or clear the history on the analytics page, or clear everything with your browser settings.'),
+      el('p', {}, 'There are no accounts, cookies or trackers. Your move log and progress are saved in your browser (localStorage). When a timed run reaches the end of its clock, its score summary (game, set, score, puzzles solved, duration) is uploaded with a random ID stored in your browser, plus a nickname if you chose one, to power the leaderboard. Runs you end early, or leave by changing page or closing the tab, are saved only in your browser and never uploaded or ranked. Anonymous usage is also recorded to improve the site: pages viewed, time on page, browser and operating system, screen size, language, broad timezone region, device class, referring site, which games and sets you open, per-puzzle results (solved, skipped, hint used, time taken, and short did vs should codes: your answer and the correct answer as game codes, the step where you first diverged and the time to it), learning page use (achievements viewed or unlocked, reports viewed, review library opened and retries completed), where runs are abandoned, whether a run ended early and how (button, navigation or page close), use of the End and review button, the resume card and study mode, outbound link clicks, and page load speed or script errors. All of it is tied only to a random ID stored in your browser. No IP address, name, email, location, keystrokes, move log or note text is stored. The learning layer (review notebook, your notes, achievements, report snapshots, the did vs should record kept with each attempt, runs ended early and the last unfinished run or puzzle behind the resume card) stays in your browser and is never uploaded. You can export, import or clear the history on the analytics page, or clear everything with your browser settings.'),
     ),
   );
 }
@@ -134,7 +148,7 @@ async function route() {
   const parts = (qi >= 0 ? raw.slice(0, qi) : raw).split('/').filter(Boolean);
   const [page, ...rest] = parts;
   // Reports and the review library live under Progress in the nav.
-  const navPage = page === 'report' || page === 'review' ? 'analytics' : page || '';
+  const navPage = page === 'report' || page === 'review' ? 'analytics' : page === 'study' ? '' : page || '';
   for (const a of document.querySelectorAll('.site-header nav > a')) {
     const target = a.getAttribute('href').replace(/^#\/?/, '');
     a.toggleAttribute('aria-current', target === navPage);
@@ -146,8 +160,8 @@ async function route() {
     else if (page === 'board') cleanup = mountBoard(main);
     else if (page === 'admin') cleanup = mountAdmin(main);
     else if (page === 'achievements') cleanup = mountAchievements(main);
-    else if (page === 'report' || page === 'review') {
-      const dispose = await (page === 'report' ? mountReport : mountReview)(main, rest, query);
+    else if (page === 'report' || page === 'review' || page === 'study') {
+      const dispose = await (page === 'report' ? mountReport : page === 'study' ? mountStudy : mountReview)(main, rest, query);
       if (token !== routeToken) dispose?.();
       else cleanup = dispose ?? null;
     }
@@ -162,7 +176,7 @@ async function route() {
     console.error(err);
     main.replaceChildren(el('p', { class: 'notice' }, `Something went wrong: ${err.message}`));
   }
-  const titles = { blockslide: 'Block Slide', latinsquare: 'Latin Square', gridmemory: 'Grid Memory', operatorswitch: 'Operator Switch', digitequation: 'Digit Equation', patternrule: 'Pattern Rule', about: 'About', analytics: 'Progress and analytics', board: 'Leaderboard', achievements: 'Achievements', report: 'Learning report', review: 'Review library', admin: 'Site Operations & Analytics' };
+  const titles = { blockslide: 'Block Slide', latinsquare: 'Latin Square', gridmemory: 'Grid Memory', operatorswitch: 'Operator Switch', digitequation: 'Digit Equation', patternrule: 'Pattern Rule', about: 'About', analytics: 'Progress and analytics', board: 'Leaderboard', achievements: 'Achievements', report: 'Learning report', review: 'Review library', study: 'Study mode', admin: 'Site Operations & Analytics' };
   track(page);
   refreshNavChip();
   document.title = `${titles[page] ?? 'Games'} | CogPrep Arcade`;

@@ -9,6 +9,7 @@ import { filterItems } from './notebook.js';
 import { noteEditor } from './notebook-ui.js';
 import { mixedQueue, dueItems, isMastered, DAILY_CAP, DAY_MS, endOfDay } from './srs.js';
 import { mountReplay } from './replay-page.js';
+import { mountRunReview } from './study-page.js';
 import { ev } from './board.js';
 
 export function mountReview(main, rest, query) {
@@ -21,6 +22,7 @@ export function mountReview(main, rest, query) {
     unknownGame(main, 'review');
     return () => {};
   }
+  if ((attemptId === 'run' || attemptId === 'practice') && rest[2]) return mountRunReview(main, game, attemptId, decodeURIComponent(rest[2]));
   if (attemptId) return mountReplay(main, game, decodeURIComponent(attemptId), query);
   ev('review_open', 'review', { game, kind: 'notebook' });
   return mountNotebook(main, game, query);

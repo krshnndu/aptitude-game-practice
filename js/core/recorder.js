@@ -11,7 +11,8 @@
 // metrics: see computeMetrics().
 //
 // Run record (a timed run): { id, game, set, seed, startedAt, endedAt, budgetMs, durationMs,
-//   score, attempted, solved, skipped, timedOut, puzzles: [compact per-puzzle rows] }
+//   score, attempted, solved, skipped, timedOut, puzzles: [compact per-puzzle rows],
+//   status?: 'complete'|'partial', partial?, exit? } (ended-early runs, see partial.js)
 // Runs carry their own per-puzzle rows, so analytics keep working after old attempts are pruned.
 
 import { efficiency } from './score.js';
@@ -226,7 +227,7 @@ export function sanitizeRun(r) {
   if (!r || typeof r !== 'object' || typeof r.id !== 'string') return null;
   if (!isNum(r.set) || !isNum(r.score) || !isNum(r.startedAt) || !isNum(r.endedAt) || !Array.isArray(r.puzzles)) return null;
   const puzzles = r.puzzles.filter((p) => p && typeof p.puzzleId === 'string' && OUTCOMES.has(p.outcome) && isNum(p.optimal));
-  return {
+  const out = {
     ...r,
     game: typeof r.game === 'string' ? r.game : 'blockslide',
     puzzles,
@@ -235,6 +236,16 @@ export function sanitizeRun(r) {
     skipped: puzzles.filter((p) => p.outcome === 'skipped').length,
     timedOut: puzzles.filter((p) => p.outcome === 'timeout').length,
   };
+  // Ended-early runs keep a clean flag set; anything else is a complete run.
+  delete out.partial;
+  delete out.exit;
+  delete out.status;
+  if (r.status === 'partial' || r.partial === true) {
+    out.status = 'partial';
+    out.partial = true;
+    if (typeof r.exit === 'string' && /^[a-z]{1,10}$/.test(r.exit)) out.exit = r.exit;
+  } else if (r.status === 'complete') out.status = 'complete';
+  return out;
 }
 
 // Upgrade steps: MIGRATIONS[v] turns version v data into version v + 1.
@@ -378,13 +389,14 @@ export function createRecorder(storage = defaultStorage(), { limits = LIMITS } =
       if (ok) for (const fn of attemptListeners) { try { fn(clean); } catch { /* never break play */ } }
       return ok;
     },
-    saveRun(run) {
+    // silent: a checkpoint (tab hidden mid-run) that must not upload or end the run in telemetry.
+    saveRun(run, { silent = false } = {}) {
       const clean = sanitizeRun(run);
       if (!clean) return false;
       const data = load();
       upsert(data.runs, clean);
       const ok = save(data);
-      if (ok) for (const fn of runListeners) { try { fn(clean); } catch { /* never break play */ } }
+      if (ok && !silent) for (const fn of runListeners) { try { fn(clean); } catch { /* never break play */ } }
       return ok;
     },
     attempts(filter = {}) {

@@ -15,6 +15,7 @@ import { createRunStream, TUTORIAL_PUZZLE } from './stream.js';
 import { coachPuzzle, coachRun, attemptResult } from './coach.js';
 import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry, stampDvs } from '../../core/learn-hooks.js';
 import { dvsPanel, dvsRunSection } from '../../core/dvs-ui.js';
+import { endButton, guardRun, saveEndedRun, isLeave, isPartial, partialBanner, runLearning, studyLink, resume } from '../../core/endrun-ui.js';
 
 const RUN_MS = 6 * 60 * 1000;
 const ARROW = '→';
@@ -310,18 +311,19 @@ function stepVisual(step) {
   );
 }
 
+// result null: study mode, nothing was played so there is no result line.
 function createExplainPanel(puzzle, result, attempt = null) {
   const ex = explainPuzzle(puzzle);
-  const status = result.status;
-  const badge = status === 'correct'
+  const status = result?.status;
+  const badge = !result ? null : status === 'correct'
     ? (result.mode === 'exam' || result.submissions <= 1 ? ['badge-ok', `${CHECK} Correct`] : ['badge-mid', `${CHECK} ${pct(1 / result.submissions)}`])
     : status === 'wrong' ? ['badge-warn', `${CROSS} Wrong`] : status === 'timeout' ? ['badge-warn', 'Time up'] : ['badge-warn', 'Skipped'];
   const answerText = puzzle.kind === 'hidden' ? `box ${spaced(ex.value)}` : arrangementText(ex.value);
   return el('section', { class: 'explain os-explain', 'aria-label': 'How to solve it' },
-    el('div', { class: 'result-line' },
+    result ? el('div', { class: 'result-line' },
       el('span', { class: `badge ${badge[0]}`, text: badge[1] }),
       el('p', { text: resultSummary({ status, submissions: result.submissions, options: puzzle.options.length, mode: result.mode }) }),
-    ),
+    ) : null,
     attempt ? dvsPanel(GAME_ID, attempt, puzzle) : null,
     el('p', { class: 'os-answer-line' }, el('strong', { text: `Answer: option ${puzzle.answer + 1}` }), `, ${answerText}.`),
     el('h3', { text: 'How to solve it: track digits, not shapes' }),
@@ -474,6 +476,7 @@ function setCard(cfg) {
       ? el('div', { class: 'set-actions' },
         el('div', { class: 'chips', role: 'group', 'aria-label': `Practice puzzles in set ${cfg.set}` }, chips),
         el('a', { class: 'btn btn-primary', href: `#/${GAME_ID}/run/${cfg.set}` }, 'Start timed run (6:00)'),
+        studyLink(GAME_ID, cfg.set),
       )
       : el('p', { class: 'muted', text: `Reach ${pct(UNLOCK_THRESHOLD)} average in set ${cfg.set - 1} (a timed run, or practice bests across all its puzzles) to unlock, or tick Unlock all sets.` }),
   );
@@ -506,11 +509,31 @@ async function renderPractice(ctx, setNo, k, retry = null) {
   const nextHref = retry ? retry.returnHash : k < PUZZLES_PER_SET ? `#/${GAME_ID}/practice/${setNo}/${k + 1}` : `#/${GAME_ID}`;
   const nextLabel = retry ? 'Compare with the optimal solution' : k < PUZZLES_PER_SET ? 'Next puzzle' : 'Back to sets';
   let area = null;
+  let curLog = null;
+
+  // An unfinished puzzle with at least one action is saved as skipped (End and review, leaving).
+  function saveUnfinished() {
+    if (retry || !area || !curLog || curLog.ended || !curLog.events.length || !area.session.playing) return false;
+    const attempt = curLog.end('skipped', { moves: area.session.submissions, hintsUsed: area.session.hintsUsed });
+    stampDvs(GAME_ID, attempt, puzzle);
+    recorder.saveAttempt(attempt);
+    noteAttempt(GAME_ID, attempt, [], puzzle);
+    return true;
+  }
+  function leave() {
+    if (saveUnfinished()) resume().save({ game: GAME_ID, kind: 'practice', set: setNo, k });
+  }
+  function endPractice() {
+    saveUnfinished();
+    resume().clear(GAME_ID, 'practice');
+    location.hash = `#/review/${GAME_ID}/practice/${setNo}`;
+  }
 
   function start() {
     area?.destroy();
     after.replaceChildren();
     const log = createAttemptLog({ game: GAME_ID, set: setNo, puzzleId: puzzle.id, mode: 'practice', source: retry ? 'review' : 'pool', optimal: 1 });
+    curLog = log;
     area = createPlayArea(puzzle, { mode: 'practice', log, onDone: (s) => finish(s, log) });
     host.replaceChildren(area.root);
   }
@@ -519,6 +542,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
     const attempt = log.end(session.outcome(), { moves: session.submissions, hintsUsed: session.hintsUsed });
     stampDvs(GAME_ID, attempt, puzzle);
     recorder.saveAttempt(attempt);
+    resume().clear(GAME_ID, 'practice');
     if (retry) {
       // Retrieval first: grade and reschedule now, compare with the optimal solution on the review page.
       completeRetry(GAME_ID, attempt);
@@ -548,13 +572,19 @@ async function renderPractice(ctx, setNo, k, retry = null) {
       el('p', { class: 'crumbs' }, el('a', { href: `#/${GAME_ID}` }, 'Operator Switch'), ` / Set ${setNo}: ${cfg.name}`),
       el('h1', {}, retry ? 'Review: solve it again before you look' : `Practice: puzzle ${k} of ${PUZZLES_PER_SET}`),
       el('p', { class: 'muted' }, `Suggested pace: about ${cfg.paceSec} s. No clock in practice mode.`),
+      retry ? null : el('div', { class: 'after-actions' }, endButton({ game: GAME_ID, practice: true, onEnd: endPractice }), studyLink(GAME_ID, setNo)),
     ),
     host,
     after,
     el('div', { class: 'after-actions' }, prevLink, el('a', { class: 'btn btn-quiet', href: nextHref }, retry ? 'Back to the review' : nextLabel)),
   );
   start();
-  ctx.onDispose(() => area?.destroy());
+  const unguard = guardRun({ onLeave: leave });
+  ctx.onDispose(() => {
+    unguard();
+    leave();
+    area?.destroy();
+  });
 }
 
 // ---------------------------------------------------------------- timed run (exam mode)
@@ -593,6 +623,7 @@ async function renderRun(ctx, setNo) {
   let runId = null;
   let startedAt = 0;
   let points = 0;
+  let unguard = null;
   const results = [];
   ctx.onDispose(() => {
     timer?.stop();
@@ -640,7 +671,7 @@ async function renderRun(ctx, setNo) {
         el('li', {}, el('strong', { text: 'Skip is final. ' }), 'A skipped puzzle never comes back.'),
         el('li', {}, el('strong', { text: 'Pace: ' }), `about ${cfg.paceSec} s per puzzle, so about ${atPace} puzzles in 6:00 for set ${setNo}.`),
         el('li', {}, el('strong', { text: 'Method: ' }), 'number the start positions, carry the number row through the boxes, and rule options out by slot 1 first.'),
-        el('li', {}, el('strong', { text: 'Afterwards: ' }), 'the coach reviews every puzzle and the whole run. Leaving this page mid-run ends it without a run score.'),
+        el('li', {}, el('strong', { text: 'Afterwards: ' }), 'the coach reviews every puzzle and the whole run. End and review stops the run at any point and shows your score so far; leaving the page saves it the same way. Runs ended early count toward progress and review but not the leaderboard.'),
       ),
       el('h3', { text: 'Try the sample puzzle (untimed, not scored)' }),
       el('p', { class: 'muted', text: 'This is the exact exam screen: chain, options, clock and Skip.' }),
@@ -664,8 +695,20 @@ async function renderRun(ctx, setNo) {
   const announcer = el('p', { class: 'sr-only', 'aria-live': 'assertive' });
   const host = el('div', {});
   const flash = el('p', { class: 'flash', role: 'status' });
+  const endBtn = endButton({ game: GAME_ID, onEnd: (exit) => finish(exit) });
   let warned60 = false;
   let warned10 = false;
+
+  const buildRun = () => {
+    const run = summarizeRun({ id: runId, game: GAME_ID, set: setNo, seed: runSeed, startedAt, endedAt: Date.now(), budgetMs: RUN_MS, attempts: results.map((r) => r.attempt) });
+    // Run score in points: wrong answers carry a penalty the core efficiency cannot express.
+    run.score = Math.max(0, results.reduce((s, r) => s + r.points, 0));
+    return run;
+  };
+  // Tab hidden mid-run: keep a silent partial copy in case the browser never comes back.
+  function checkpoint() {
+    if (!finished && startedAt) saveEndedRun({ recorder, run: buildRun(), exit: 'hidden' });
+  }
 
   function begin() {
     tutorialArea?.destroy();
@@ -676,7 +719,12 @@ async function renderRun(ctx, setNo) {
     runId = newId('r');
     startedAt = Date.now();
     stream = createRunStream({ puzzles: data.puzzles, seed: runSeed, setNo });
-    body.replaceChildren(el('div', { class: 'exam-hud' }, clock, progress, scoreOut, hudSlot), flash, announcer, host);
+    unguard = guardRun({ onLeave: (exit) => finish(exit), onHide: checkpoint });
+    // Registered after the page disposer, so it runs first: a route change mid-run saves it.
+    ctx.onDispose(() => {
+      if (!finished) finish('nav');
+    });
+    body.replaceChildren(el('div', { class: 'exam-hud' }, clock, progress, scoreOut, hudSlot, endBtn), flash, announcer, host);
     timer = new Countdown(RUN_MS, {
       onTick: (left) => {
         clock.textContent = formatClock(left);
@@ -735,12 +783,15 @@ async function renderRun(ctx, setNo) {
     results.push({ attempt, puzzle: current.puzzle, source: current.source, index: current.index, status: session.status, points: pts });
   }
 
-  function finish() {
+  // exit: 'time' (clock ran out), 'early' (End and review), 'nav' or 'unload' (left the page).
+  function finish(exit = 'time') {
     if (finished) return;
     finished = true;
     clearTimeout(advanceHandle);
     timer?.stop();
-    if (current && !current.done && area) {
+    unguard?.();
+    // Ended early: an untouched puzzle on screen counts as not attempted.
+    if (current && !current.done && area && (exit === 'time' || current.log.events.length)) {
       area.session.timeout();
       record(area.session);
     }
@@ -749,10 +800,7 @@ async function renderRun(ctx, setNo) {
     setExamChrome(false);
     head.hidden = false;
 
-    const run = summarizeRun({ id: runId, game: GAME_ID, set: setNo, seed: runSeed, startedAt, endedAt: Date.now(), budgetMs: RUN_MS, attempts: results.map((r) => r.attempt) });
-    // Run score in points: wrong answers carry a penalty the core efficiency cannot express.
-    run.score = Math.max(0, results.reduce((s, r) => s + r.points, 0));
-    recorder.saveRun(run);
+    const run = saveEndedRun({ recorder, run: buildRun(), exit });
     const slots = Math.max(PUZZLES_PER_SET, results.length);
     const avg = averageEfficiency(run.score, slots);
     const wasOpen = setNo < SET_CONFIGS.length ? isUnlocked(setNo + 1) : true;
@@ -760,9 +808,16 @@ async function renderRun(ctx, setNo) {
     const nowOpen = setNo < SET_CONFIGS.length ? isUnlocked(setNo + 1) : true;
 
     const puzzlesById = new Map(results.map((r) => [r.puzzle.id, r.puzzle]));
+    // Leaving the page: save to the review library without the (slower) coach, and render nothing.
+    if (isLeave(exit)) {
+      noteRun(GAME_ID, run, results.map((r) => r.attempt), [], puzzlesById);
+      return;
+    }
     const history = recorder.attempts({ game: GAME_ID, set: setNo });
     const runCoach = coachRun(run, results.map((r) => r.attempt), puzzlesById, { paceSec: cfg.paceSec, budgetMs: RUN_MS, history });
     noteRun(GAME_ID, run, results.map((r) => r.attempt), runCoach.perPuzzle, puzzlesById);
+    const partial = isPartial(run);
+    const [takeawaysNode, notAttemptedNode] = runLearning({ game: GAME_ID, run, attempts: results.map((r) => r.attempt), habits: runCoach.habits, perPuzzle: runCoach.perPuzzle, pool: data.puzzles, solve: studyWalkthrough, onDispose: ctx.onDispose });
     const errorByPuzzle = new Map(runCoach.errors.map((e) => [e.puzzle, e.label]));
     const correct = results.filter((r) => r.status === 'correct').length;
     const answered = results.filter((r) => r.status === 'correct' || r.status === 'wrong').length;
@@ -797,14 +852,16 @@ async function renderRun(ctx, setNo) {
 
     body.replaceChildren(
       el('section', { class: 'run-summary' },
-        el('h2', { text: 'Time is up' }),
+        el('h2', { text: partial ? 'Run ended early' : 'Time is up' }),
+        partialBanner(run),
         el('div', { class: 'score-tiles' },
           el('div', { class: 'tile' }, el('span', { class: 'tile-label', text: 'Run score (points)' }), el('strong', { text: round2(run.score).toFixed(2) })),
           el('div', { class: 'tile' }, el('span', { class: 'tile-label', text: 'Correct' }), el('strong', { text: `${correct} of ${answered} answered (${results.length} reached)` })),
           el('div', { class: 'tile' }, el('span', { class: 'tile-label', text: 'Average per slot' }), el('strong', { text: pct(avg) })),
           el('div', { class: 'tile' }, el('span', { class: 'tile-label', text: 'Best for this set' }), el('strong', { text: `${round2(best).toFixed(2)}${improved ? ' (new best)' : ''}` })),
         ),
-        runExtras(GAME_ID, setNo, improved),
+        runExtras(GAME_ID, setNo, improved, { partial }),
+        takeawaysNode,
         !wasOpen && nowOpen ? el('p', { class: 'callout callout-ok', text: `Set ${setNo + 1} unlocked. Nice work.` }) : null,
         avg < UNLOCK_THRESHOLD && setNo < SET_CONFIGS.length && !nowOpen
           ? el('p', { class: 'callout', text: `Reach ${pct(UNLOCK_THRESHOLD)} average (score / ${slots}) to unlock set ${setNo + 1}.` })
@@ -827,8 +884,10 @@ async function renderRun(ctx, setNo) {
           ),
         ),
         dvsRunSection(GAME_ID, results.map((r) => ({ attempt: r.attempt, puzzle: r.puzzle }))),
+        notAttemptedNode,
         el('div', { class: 'after-actions' },
           el('button', { type: 'button', class: 'btn btn-primary', onclick: () => ctx.rerender() }, 'Run again'),
+          studyLink(GAME_ID, setNo),
           el('a', { class: 'btn', href: '#/analytics' }, 'Progress and analytics'),
           el('a', { class: 'btn', href: `#/${GAME_ID}` }, 'Back to sets'),
         ),
@@ -873,6 +932,11 @@ function renderRetry(ctx) {
 // Watch mode on the review page: the worked solution, with the original result line.
 export function reviewWalkthrough(puzzle, attempt) {
   return createExplainPanel(puzzle, { status: attemptResult(attempt), submissions: attempt.metrics?.grossMoves ?? 0, mode: attempt.mode });
+}
+
+// Study mode: the worked solution for a puzzle nobody played yet (no result line, nothing scored).
+export function studyWalkthrough(puzzle, onDispose = () => {}) {
+  return createExplainPanel(puzzle, null);
 }
 
 // ---------------------------------------------------------------- entry

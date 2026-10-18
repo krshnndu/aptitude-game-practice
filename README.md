@@ -142,6 +142,26 @@ Design spec: `docs/learning-spec.md`. Everything stays in the browser under the 
 * Telemetry for the learning pages (`ev()` in `board.js`): `ach_view`, `ach_unlock`, `report_view`, `review_open`,
   `review_done`.
 
+## Flexible exit and study mode
+
+Logic in `js/core/partial.js` (pure), widgets in `js/core/endrun-ui.js`, pages in `js/core/study-page.js`.
+
+* End and review: every timed run (in the exam bar) and every practice puzzle has the button, with a confirm dialog.
+  A route change (page dispose), `pagehide` and the clock running out also end a run; a hidden tab saves a silent
+  checkpoint (`recorder.saveRun(run, { silent: true })`, no upload, no `run_end`) that the final save replaces.
+* Runs ended early are saved with `status: 'partial'`, `partial: true` and `exit` (`early`, `nav`, `unload`, `hidden`).
+  They count toward progress, reports, streaks, the review library and did vs should, but `board.js` never queues them
+  for `/submit` and `runExtras` shows no rank or percentile. `run_end` carries `part: 1` and `exit`.
+* Result screen: score so far, items seen, did vs should per attempted item, the pool puzzles never reached listed as
+  "not attempted" with the solution on demand, and top 3 takeaways (biggest time sink, repeated mistake pattern, one
+  strategy sheet tip) with a link to the review notebook. Shown on every run result.
+* Resume slot `cogprep.resume.v1` (one entry, 7 days): the home page card reopens an unfinished practice puzzle, or
+  offers review of a run that ended early (timed runs restart fresh). Review pages: `#/review/<game>/run/<runId>` and
+  `#/review/<game>/practice/<set>` (this tab's practice session).
+* Study mode `#/study/<game>/<set>`: every puzzle in a set with its walkthrough (each `play.js` exports
+  `studyWalkthrough`), no timer, nothing scored or saved.
+* Telemetry: `feat` events `end_early`, `resume`, `study_open`.
+
 ## Layout
 
 ```
