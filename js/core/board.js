@@ -62,41 +62,67 @@ export async function compareStrip(game, set) {
 
 const GAME_NAMES = { blockslide: 'Block Slide', latinsquare: 'Latin Square', gridmemory: 'Grid Memory', operatorswitch: 'Operator Switch', digitequation: 'Digit Equation', patternrule: 'Pattern Rule' };
 
+const fmtTime = (ms) => { const t = Math.round((ms || 0) / 1000), m = Math.floor(t / 60), x = t % 60; return `${m}:${String(x).padStart(2, '0')}`; };
+const fmtDate = (t) => { try { return new Date(t * 1000).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); } catch { return ''; } };
+const MEDAL = { 1: '\u{1F947}', 2: '\u{1F948}', 3: '\u{1F949}' };
+
 export function mountBoard(main) {
-  const game = el('select', { id: 'lb-game' }, Object.entries(GAME_NAMES).map(([k, v]) => el('option', { value: k }, v)));
-  const set = el('select', { id: 'lb-set' }, [1, 2, 3, 4, 5].map((n) => el('option', { value: n }, 'Set ' + n)));
-  const week = el('select', { id: 'lb-week' }, el('option', { value: '0' }, 'All time'), el('option', { value: '1' }, 'This week'));
-  const out = el('div', { class: 'board-out' });
-  const nickIn = el('input', { type: 'text', id: 'lb-nick', maxlength: 16, placeholder: 'Nickname (optional)', value: nick() });
+  let curGame = sessionStorage.getItem('cogprep.lb.game') || 'blockslide';
+  if (!GAME_NAMES[curGame]) curGame = 'blockslide';
+  let weekly = false;
+  const tabs = el('div', { class: 'lb-tabs', role: 'tablist' });
+  const wk = el('div', { class: 'lb-tabs lb-week' });
+  const out = el('div', { class: 'lb-grid' });
+  const nickIn = el('input', { type: 'text', maxlength: 16, placeholder: 'Nickname (optional)', value: nick() });
   const nickMsg = el('span', { class: 'muted' }, '');
   const cmp = el('input', { type: 'checkbox', id: 'lb-cmp' }); cmp.checked = compareOn();
   cmp.addEventListener('change', () => setCompare(cmp.checked));
   const save = el('button', { type: 'button', class: 'btn', onclick: () => { setNick(nickIn.value); nickMsg.textContent = 'Saved. It applies from your next run.'; } }, 'Save nickname');
+
+  function drawTabs() {
+    tabs.replaceChildren(...Object.entries(GAME_NAMES).map(([k, v]) => el('button', { type: 'button', role: 'tab', class: 'lb-tab' + (k === curGame ? ' is-on' : ''), 'aria-selected': k === curGame ? 'true' : 'false', onclick: () => { curGame = k; sessionStorage.setItem('cogprep.lb.game', k); drawTabs(); load(); } }, v)));
+    wk.replaceChildren(...[[false, 'All time'], [true, 'This week']].map(([w, l]) => el('button', { type: 'button', class: 'lb-tab' + (weekly === w ? ' is-on' : ''), onclick: () => { weekly = w; drawTabs(); load(); } }, l)));
+  }
+  function card(s, minPct) {
+    const head = el('div', { class: 'lb-head' }, el('h2', {}, 'Set ' + s.set), el('span', { class: 'muted' }, s.players ? `${s.players} player${s.players === 1 ? '' : 's'}${s.median !== null ? `, median ${s.median}` : ''}` : 'No runs yet'));
+    if (!s.top.length) return el('section', { class: 'lb-card' }, head, el('p', { class: 'muted lb-empty' }, 'No runs yet. Be the first.'));
+    const mine = s.top.find((r) => r.me);
+    const rows = s.top.map((r) => {
+      const acc = r.attempted ? Math.round(100 * r.solved / r.attempted) : 0;
+      return el('tr', { class: (r.me ? 'is-me ' : '') + (r.rank <= 3 ? 'is-top' : '') },
+        el('td', { class: 'lb-rank' }, MEDAL[r.rank] || String(r.rank)),
+        el('td', { class: 'lb-name' }, r.name, r.me ? el('span', { class: 'lb-you' }, 'You') : ''),
+        el('td', { class: 'lb-num lb-score' }, String(r.score)),
+        el('td', { class: 'lb-num' }, `${r.solved}/${r.attempted}`),
+        el('td', { class: 'lb-num lb-hide' }, acc + '%'),
+        el('td', { class: 'lb-num lb-hide' }, fmtTime(r.durationMs)),
+        el('td', { class: 'lb-num lb-hide' }, fmtDate(r.t)));
+    });
+    const tbl = el('table', { class: 'lb-table' },
+      el('thead', {}, el('tr', {}, el('th', {}, '#'), el('th', {}, 'Player'), el('th', { class: 'lb-num' }, 'Score'), el('th', { class: 'lb-num' }, 'Solved'), el('th', { class: 'lb-num lb-hide' }, 'Acc.'), el('th', { class: 'lb-num lb-hide' }, 'Time'), el('th', { class: 'lb-num lb-hide' }, 'Date'))),
+      el('tbody', {}, rows));
+    const foot = mine && s.players >= minPct ? el('p', { class: 'lb-foot' }, `Your rank: ${mine.rank} of ${s.players}. Title: `, el('strong', {}, titleFor(Math.round(100 * (s.players - mine.rank) / s.players)))) : '';
+    return el('section', { class: 'lb-card' }, head, el('div', { class: 'lb-scroll' }, tbl), foot);
+  }
   async function load() {
     out.replaceChildren(el('p', { class: 'muted' }, 'Loading...'));
     try {
-      const d = await fetchBoard(game.value, set.value, week.value === '1');
-      const rows = d.top.map((r) => el('li', {}, `#${r.rank} ${r.name}: ${r.score} points (${r.solved} solved)`));
-      out.replaceChildren(
-        el('p', {}, `${d.players} player${d.players === 1 ? '' : 's'}${d.median !== null ? `, median score ${d.median}` : ''}.`),
-        d.top.length ? el('ol', { class: 'board-list' }, rows) : el('p', { class: 'muted' }, 'No scores yet for this set. Finish a timed test to be the first.'),
-        d.me ? el('p', {}, `You: rank ${d.me.rank} of ${d.me.of}`, d.players >= d.minForPercentile ? `, ahead of ${d.me.percentile}%. Title: ` : '', d.players >= d.minForPercentile ? el('strong', {}, titleFor(d.me.percentile)) : '') : el('p', { class: 'muted' }, 'Finish a timed test on this set to appear here.'),
-      );
-    } catch { out.replaceChildren(el('p', { class: 'muted' }, 'The leaderboard is offline right now. Practice and timed tests still work, and your scores are sent when it is back.')); }
+      const d = await get(`/boardall?game=${curGame}&week=${weekly ? 1 : 0}&cid=${encodeURIComponent(cid())}`);
+      out.replaceChildren(...d.sets.map((s) => card(s, d.minForPercentile)));
+    } catch { out.replaceChildren(el('p', { class: 'muted' }, 'Leaderboard is offline right now. Practice still works and runs are retried later.')); }
   }
-  for (const s of [game, set, week]) s.addEventListener('change', load);
   main.append(
     el('h1', {}, 'Leaderboard'),
-    el('p', {}, 'Every finished timed test uploads its score with a random ID. No IP address is stored. A nickname is optional and shown publicly.'),
-    el('div', { class: 'board-controls toolbar' },
-      el('label', { for: 'lb-game' }, 'Game ', game), el('label', { for: 'lb-set' }, 'Set ', set), el('label', { for: 'lb-week' }, 'Period ', week)),
+    el('p', { class: 'muted' }, 'Best timed run per player on every set. All five sets are shown below. Your row is highlighted.'),
+    el('div', { class: 'lb-controls' }, tabs, wk),
     out,
-    el('h2', {}, 'Your settings'),
-    el('div', { class: 'toolbar' }, el('label', { for: 'lb-nick', class: 'sr-only' }, 'Nickname'), nickIn, save, nickMsg),
-    el('label', { class: 'toggle', for: 'lb-cmp' }, cmp, ' Show "you vs others" after each timed test'),
-    el('p', { class: 'muted' }, 'Titles by percentile: ' + TITLES.slice().reverse().map(([m, t]) => `${t} (${m}%+)`).join(', ')),
+    el('details', { class: 'lb-settings' }, el('summary', {}, 'Your settings and privacy'),
+      el('p', {}, 'Every finished timed run uploads its score with a random ID. No IP address is stored. A nickname is optional and shown publicly.'),
+      el('div', {}, nickIn, ' ', save, ' ', nickMsg),
+      el('label', {}, cmp, ' Show "you vs others" after each run'),
+      el('p', { class: 'muted' }, 'Titles by percentile: ' + TITLES.slice().reverse().map(([m, t]) => `${t} (${m}%+)`).join(', '))),
   );
-  load();
+  drawTabs(); load();
   return () => {};
 }
 

@@ -704,3 +704,26 @@ select, input[type="text"], input[type="search"], input:not([type]) {
 .brand, .nav-chip a, .game-tabs a { min-height: 44px; }
 .game-tabs a { display: inline-flex; align-items: center; }
 .filter select { min-height: 44px; }
+/* leaderboard */
+.lb-controls { display: flex; flex-wrap: wrap; gap: 10px 20px; margin: 12px 0 16px; align-items: center; }
+.lb-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.lb-tab { padding: 6px 12px; border: 1px solid var(--line, #bbb); border-radius: 999px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.lb-tab.is-on { background: var(--accent, #2b6cb0); border-color: var(--accent, #2b6cb0); color: #fff; }
+.lb-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 430px), 1fr)); align-items: start; }
+.lb-card { border: 1px solid var(--line, #ccc); border-radius: 12px; padding: 12px 14px; background: var(--card, transparent); }
+.lb-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.lb-head h2 { margin: 0 0 6px; font-size: 1.1rem; }
+.lb-scroll { overflow-x: auto; }
+.lb-table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.lb-table th, .lb-table td { padding: 5px 6px; text-align: left; border-bottom: 1px solid var(--line, rgba(128,128,128,.25)); white-space: nowrap; }
+.lb-table th { font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; opacity: .7; }
+.lb-table .lb-num { text-align: right; font-variant-numeric: tabular-nums; }
+.lb-rank { width: 2.2em; }
+.lb-score { font-weight: 700; }
+.lb-table tr.is-me { background: rgba(43, 108, 176, .16); font-weight: 600; }
+.lb-you { margin-left: 6px; padding: 1px 6px; border-radius: 6px; font-size: .7rem; background: var(--accent, #2b6cb0); color: #fff; }
+.lb-foot { margin: 8px 0 0; font-size: .9rem; }
+.lb-empty { margin: 8px 0; }
+.lb-settings { margin-top: 20px; }
+.lb-settings summary { cursor: pointer; font-weight: 600; }
+@media (max-width: 520px) { .lb-hide { display: none; } }
