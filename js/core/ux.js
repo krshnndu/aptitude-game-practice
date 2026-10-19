@@ -1,5 +1,5 @@
-// Pure onboarding logic: per-game status, the recommended set and puzzle, the home page next step,
-// mode choice from a link, and the one-time UI flags (welcome strip, coach marks) kept in localStorage.
+// Pure onboarding logic: per-game status, the recommended set and puzzle, mode choice from a link,
+// the result screen Termly nudge rule, and the one-time UI flags (welcome strip, coach marks) kept in localStorage.
 // No DOM here so node tests can cover all of it.
 
 import { UNLOCK_THRESHOLD, averageEfficiency } from './score.js';
@@ -53,21 +53,20 @@ export function modeFromHref(href) {
   return null;
 }
 
-// Home page suggestion. games: [{ id, name, status, practiced, timed }] in catalogue order; due: review count.
-export function nextStep({ games = [], due = 0 } = {}) {
-  if (!games.length) return null;
-  const first = games[0];
-  if (games.every((g) => g.status === 'new')) {
-    return { kind: 'start', game: first.id, href: `#/${first.id}`, text: `New here? Start with ${first.name} practice: no timer, hints on, and the solution after every puzzle.`, cta: `Practice ${first.name}` };
+// Result screen Termly nudge: counts results shown on this browser and allows the nudge once per tab
+// session, from the second result onward. local, session: Storage-like. Returns true to show it.
+export const RUNS_KEY = 'cogprep.runs.v1';
+export const NUDGE_KEY = 'cogprep.makernudge.v1';
+export function makerNudgeDue(local, session) {
+  try {
+    const n = (Number(local.getItem(RUNS_KEY)) || 0) + 1;
+    local.setItem(RUNS_KEY, String(n));
+    if (n < 2 || session.getItem(NUDGE_KEY)) return false;
+    session.setItem(NUDGE_KEY, '1');
+    return true;
+  } catch {
+    return false;
   }
-  if (due > 0) return { kind: 'review', href: '#/review/today', text: `${due} ${due === 1 ? 'puzzle is' : 'puzzles are'} due for review. Redo them before new ones: that is where the learning sticks.`, cta: 'Review now' };
-  const ready = games.find((g) => g.status === 'progress' && g.practiced >= 3 && !g.timed);
-  if (ready) return { kind: 'timed', game: ready.id, href: `#/${ready.id}`, text: `You have practised ${ready.name}. Try its 6 minute timed test to see how you do under the clock.`, cta: `Timed test: ${ready.name}` };
-  const going = games.find((g) => g.status === 'progress');
-  if (going) return { kind: 'continue', game: going.id, href: `#/${going.id}`, text: `Keep going with ${going.name}: pass a set at 70% to unlock the next one.`, cta: `Open ${going.name}` };
-  const fresh = games.find((g) => g.status === 'new');
-  if (fresh) return { kind: 'start', game: fresh.id, href: `#/${fresh.id}`, text: `Try a new game: ${fresh.name}. Start with practice.`, cta: `Practice ${fresh.name}` };
-  return { kind: 'done', href: '#/review/today', text: 'Every game mastered. Keep sharp with timed tests and your review queue.', cta: 'Open review queue' };
 }
 
 // One-time flags: { welcome: ts dismissed, tips: { '<game>:<mode>': ts } }.

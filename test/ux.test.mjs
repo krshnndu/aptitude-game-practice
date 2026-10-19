@@ -1,7 +1,7 @@
-// Onboarding logic: game status chips, recommended set and puzzle, next step, mode links, one-time prefs.
+// Onboarding logic: game status chips, recommended set and puzzle, Termly nudge rule, mode links, one-time prefs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gameStatus, recommendedSet, nextPractice, modeFromHref, nextStep, createUxPrefs, setPassed, UX_KEY } from '../js/core/ux.js';
+import { gameStatus, recommendedSet, nextPractice, modeFromHref, makerNudgeDue, RUNS_KEY, NUDGE_KEY, createUxPrefs, setPassed, UX_KEY } from '../js/core/ux.js';
 import { memoryStorage } from '../js/core/store.js';
 
 const idOf = (s, k) => `bs${s}-${String(k).padStart(2, '0')}`;
@@ -52,18 +52,18 @@ test('modeFromHref maps start links to modes', () => {
   assert.equal(modeFromHref(null), null);
 });
 
-test('nextStep: start, review, timed, continue, new game, done', () => {
-  const g = (id, status, practiced = 0, timed = 0) => ({ id, name: id.toUpperCase(), status, practiced, timed });
-  assert.equal(nextStep({ games: [] }), null);
-  assert.equal(nextStep({ games: [g('a', 'new'), g('b', 'new')] }).kind, 'start');
-  assert.equal(nextStep({ games: [g('a', 'new'), g('b', 'new')] }).game, 'a');
-  assert.equal(nextStep({ games: [g('a', 'progress', 1)], due: 2 }).kind, 'review');
-  const t = nextStep({ games: [g('a', 'progress', 4, 0)] });
-  assert.equal(t.kind, 'timed');
-  assert.equal(t.href, '#/a');
-  assert.equal(nextStep({ games: [g('a', 'progress', 4, 1)] }).kind, 'continue');
-  assert.equal(nextStep({ games: [g('a', 'mastered'), g('b', 'new')] }).game, 'b');
-  assert.equal(nextStep({ games: [g('a', 'mastered')] }).kind, 'done');
+test('makerNudgeDue: never on the first result, then once per session', () => {
+  const local = memoryStorage();
+  const tab1 = memoryStorage();
+  assert.equal(makerNudgeDue(local, tab1), false);
+  assert.equal(local.getItem(RUNS_KEY), '1');
+  assert.equal(makerNudgeDue(local, tab1), true);
+  assert.equal(tab1.getItem(NUDGE_KEY), '1');
+  assert.equal(makerNudgeDue(local, tab1), false);
+  assert.equal(makerNudgeDue(local, memoryStorage()), true);
+  assert.equal(local.getItem(RUNS_KEY), '4');
+  const broken = { getItem: () => { throw new Error('blocked'); }, setItem: () => {} };
+  assert.equal(makerNudgeDue(broken, tab1), false);
 });
 
 test('ux prefs: welcome and tips are remembered, skip all and reset', () => {

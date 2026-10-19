@@ -5,7 +5,7 @@
 :root[data-theme="dark"] { --series-other: #6b6a64; }
 
 .learn h1 { margin-bottom: 4px; }
-.learn-strip, .learn-overview .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 20px; }
+.learn-overview .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 20px; }
 
 /* Badge chip and tiers */
 .tier-chip {
@@ -21,7 +21,6 @@
 .tier-adept .tier-dot { background: var(--series-2); }
 .tier-master .tier-dot { background: var(--ok); box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ok); }
 .nav-chip { display: inline-flex; align-items: center; margin-left: 4px; }
-.due-link { margin-top: 8px; font-size: 0.9rem; font-weight: 600; }
 
 .badge-panel, .report-header { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin: 12px 0 24px; }
 .badge-panel > div:last-child, .report-header > div:last-child { flex: 1 1 320px; }
@@ -137,7 +136,7 @@ p .tag-chip { display: inline-flex; margin: 0 4px 4px 0; cursor: default; }
 .dvs-run details { border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 10px; margin: 6px 0; background: var(--card); }
 .dvs-run summary { cursor: pointer; font-weight: 600; }
 
-/* Flexible exit and learning focus: End and review, takeaways, not attempted, resume card, study mode */
+/* Flexible exit and learning focus: End and review, takeaways, not attempted, study mode */
 .btn-end { border-color: var(--muted); }
 .exam-hud .btn-end { margin-left: auto; }
 .partial-banner .score-tiles { margin-top: 8px; }
@@ -147,5 +146,3 @@ p .tag-chip { display: inline-flex; margin: 0 4px 4px 0; cursor: default; }
 .not-attempted, .study-list { margin: 16px 0; }
 .study-item { border: 1px solid var(--line, #ccc); border-radius: 8px; padding: 6px 10px; margin: 6px 0; }
 .study-item > summary { cursor: pointer; font-weight: 600; }
-.resume-card { margin: 16px 0; }
-.resume-card .section-title { margin-top: 0; }

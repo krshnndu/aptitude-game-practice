@@ -17,7 +17,7 @@ import { createRunStream, freshKit, TUTORIAL_PUZZLE } from './stream.js';
 import { coachPuzzle, coachRun, attemptResult } from './coach.js';
 import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry, stampDvs } from '../../core/learn-hooks.js';
 import { dvsPanel, dvsRunSection } from '../../core/dvs-ui.js';
-import { endButton, guardRun, saveEndedRun, isLeave, isPartial, partialBanner, runLearning, studyLink, resume } from '../../core/endrun-ui.js';
+import { endButton, guardRun, saveEndedRun, isLeave, isPartial, partialBanner, runLearning, studyLink, resume, makerNudge } from '../../core/endrun-ui.js';
 
 const RUN_MS = 6 * 60 * 1000;
 const ARROW = '→';
@@ -551,7 +551,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
       trackExplain(createExplainPanel(puzzle, { status: session.status, submissions: session.submissions, mode: 'practice' }, attempt), attempt),
     );
     after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
-    after.append(timedNudge('operatorswitch', setNo));
+    after.append(timedNudge('operatorswitch', setNo), makerNudge(GAME_ID) ?? '');
     after.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
   }
 
@@ -890,6 +890,7 @@ async function renderRun(ctx, setNo, freshMode = false) {
           el('a', { class: 'btn', href: '#/analytics' }, 'Progress and analytics'),
           el('a', { class: 'btn', href: `#/${GAME_ID}` }, 'Back to sets'),
         ),
+        makerNudge(GAME_ID),
         review,
       ),
     );

@@ -216,7 +216,6 @@ main:focus { outline: none; }
 h1 { font-size: clamp(1.6rem, 3.5vw, 2.2rem); line-height: 1.2; margin: 0 0 8px; }
 h2 { font-size: 1.25rem; margin: 0 0 8px; }
 h3 { font-size: 1.1rem; margin: 16px 0 8px; }
-.lede { font-size: 1.1rem; color: var(--muted); max-width: 70ch; }
 .muted { color: var(--muted); }
 .small { font-size: 0.875rem; }
 .section-title { margin-top: 32px; }
@@ -236,7 +235,7 @@ h3 { font-size: 1.1rem; margin: 16px 0 8px; }
   font: inherit; font-weight: 600; text-decoration: none; cursor: pointer;
 }
 .btn:hover:not(:disabled) { border-color: var(--fg); }
-.btn:disabled, .btn-disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
 .btn-primary:hover:not(:disabled) { filter: brightness(1.08); border-color: var(--accent); }
 .btn-warn { color: var(--warn); }
@@ -255,24 +254,38 @@ h3 { font-size: 1.1rem; margin: 16px 0 8px; }
 
 /* ------------------------------------------------ home */
 
-.hero { padding: 8px 0 8px; }
+.hero { padding: 0 0 8px; }
+.hero h1 { margin-bottom: 4px; }
+.hero-sub { margin: 0 0 12px; color: var(--muted); }
+.btn-hero { display: flex; width: 100%; max-width: 420px; font-size: 1.1rem; min-height: 52px; }
+.hero-hint { margin: 8px 0 0; }
+.resume-row { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; margin: 8px 0 0; }
+.resume-row a { display: inline-flex; align-items: center; min-height: 44px; }
 .card-grid {
-  list-style: none; padding: 0; margin: 0;
-  display: grid; gap: 16px;
+  list-style: none; padding: 0; margin: 16px 0 0;
+  display: grid; gap: 12px;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 }
+@media (max-width: 600px) { .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
+.card-grid > li { display: flex; }
 .game-card, .set-card {
   background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 16px; box-shadow: var(--shadow);
   display: flex; flex-direction: column; gap: 4px;
 }
-.game-card p { margin: 0 0 8px; }
-.game-card .btn { margin-top: auto; align-self: flex-start; }
-.game-card.is-soon { background: transparent; box-shadow: none; border-style: dashed; }
+a.game-card { flex: 1; position: relative; min-height: 44px; padding: 12px; gap: 6px; color: var(--fg); text-decoration: none; align-items: flex-start; }
+a.game-card:hover { border-color: var(--accent); }
+a.game-card:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.game-card.is-soon { flex: 1; padding: 12px; gap: 6px; align-items: flex-start; background: transparent; box-shadow: none; border-style: dashed; }
+.card-name { font-weight: 800; font-size: 1.05rem; line-height: 1.2; padding-right: 14px; }
+.badge-skill { color: var(--muted); white-space: normal; border-radius: 8px; border-width: 1px; font-size: 0.75rem; }
+.status-dot { position: absolute; top: 12px; right: 10px; width: 10px; height: 10px; border-radius: 50%; }
+.status-dot.is-progress { background: var(--mid); }
+.status-dot.is-mastered { background: var(--ok); }
+.due-chip { font-size: 0.8rem; font-weight: 700; color: var(--warn); }
+.maker-line { margin: 16px 0 0; }
 .card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .card-head h3, .card-head h2 { margin: 0; }
-.card-skill { color: var(--muted); font-size: 0.9rem; font-weight: 600; }
-.tips ul { padding-left: 20px; max-width: 72ch; }
 
 /* ------------------------------------------------ block slide menu */
 
@@ -624,10 +637,10 @@ div.piece { cursor: default; }
   html:focus-within { scroll-behavior: auto; }
 }
 
-.maker { margin: 2rem 0; padding: 1rem 1.25rem; border: 1px solid currentColor; border-radius: 12px; }
-.maker-links { padding-left: 1.2rem; }
-.maker-links li { margin: .4rem 0; }
 .maker-foot { margin-top: .5rem; }
+.maker-nudge { display: flex; align-items: center; gap: 8px; margin: 16px 0 0; font-size: 0.9rem; }
+.maker-nudge a { display: inline-flex; align-items: center; min-height: 44px; }
+.maker-nudge-close { min-width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 1.2rem; cursor: pointer; }
 
 /* ------------------------------------------------ onboarding and plain-language UX */
 
@@ -685,18 +698,6 @@ select, input[type="text"], input[type="search"], input:not([type]) {
 .chips-label { width: 100%; margin: 4px 0 0; }
 .set-card.is-locked { opacity: 1; background: transparent; border-style: dashed; }
 .locked-hint { margin: 8px 0 0; }
-
-/* Home: welcome, status chips, next step. */
-.welcome { margin: 16px 0; }
-.welcome .section-title { margin-top: 0; }
-.welcome-steps { margin: 0 0 12px; padding-left: 22px; }
-.welcome-steps li { margin: 4px 0; }
-.next-step { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; margin: 16px 0; padding: 12px 16px; border-radius: var(--radius); background: color-mix(in srgb, var(--accent) 10%, var(--card)); border: 1px solid var(--line); }
-.next-step p { margin: 0; flex: 1 1 280px; }
-.badge-new { color: var(--accent); }
-.badge-progress { color: var(--mid); }
-.badge-mastered { color: var(--ok); }
-.due-link { display: inline-flex; align-items: center; min-height: 44px; }
 
 /* One-time coach marks. */
 .coach-mark { margin: 0 0 16px; border-left-color: var(--ok); }

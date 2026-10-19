@@ -20,7 +20,7 @@ import { gameStart, setActions, setListHead, lockedHint, lockedPage, progressLin
 import { practicePuzzleAsync, runSetup, seenFilter, markSeen, isFreshArg, aliveCheck, notePlayed } from '../../core/fresh-play.js';
 import { practiceSeed } from '../../core/fresh.js';
 import { cid } from '../../core/board.js';
-import { endButton, guardRun, saveEndedRun, isLeave, isPartial, partialBanner, runLearning, studyLink, resume } from '../../core/endrun-ui.js';
+import { endButton, guardRun, saveEndedRun, isLeave, isPartial, partialBanner, runLearning, studyLink, resume, makerNudge } from '../../core/endrun-ui.js';
 
 const GAME_ID = 'blockslide';
 const RUN_MS = 6 * 60 * 1000;
@@ -679,7 +679,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
       trackExplain(createExplainPanel(puzzle, { moves: game.moves, solved }, ctx, dvsPanel(GAME_ID, attempt, puzzle)), attempt),
     );
     after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
-    after.append(timedNudge('blockslide', setNo));
+    after.append(timedNudge('blockslide', setNo), makerNudge(GAME_ID) ?? '');
     after.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
   }
 
@@ -1229,6 +1229,7 @@ async function renderRun(ctx, setNo, freshMode = false) {
           el('a', { class: 'btn', href: '#/analytics' }, 'Progress and analytics'),
           el('a', { class: 'btn', href: '#/blockslide' }, 'Back to sets'),
         ),
+        makerNudge(GAME_ID),
         review,
       ),
     );

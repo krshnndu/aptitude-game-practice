@@ -18,7 +18,7 @@ import { createRunStream, freshKit, TUTORIAL_PUZZLE } from './stream.js';
 import { coachPuzzle, coachRun } from './coach.js';
 import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry, stampDvs } from '../../core/learn-hooks.js';
 import { dvsPanel, dvsRunSection } from '../../core/dvs-ui.js';
-import { endButton, guardRun, saveEndedRun, isLeave, isPartial, partialBanner, runLearning, studyLink, resume } from '../../core/endrun-ui.js';
+import { endButton, guardRun, saveEndedRun, isLeave, isPartial, partialBanner, runLearning, studyLink, resume, makerNudge } from '../../core/endrun-ui.js';
 
 const GAME_ID = 'digitequation';
 const RUN_MS = 6 * 60 * 1000;
@@ -683,7 +683,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
       trackExplain(createExplainPanel(puzzle, { placements: game.placements, solved, wrongChecks: game.wrongChecks, outcome, attempt }), attempt),
     );
     after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
-    after.append(timedNudge('digitequation', setNo));
+    after.append(timedNudge('digitequation', setNo), makerNudge(GAME_ID) ?? '');
     after.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
   }
 
@@ -990,6 +990,7 @@ async function renderRun(ctx, setNo, freshMode = false) {
         studyLink(GAME_ID, setNo),
         el('a', { class: 'btn', href: '#/analytics' }, 'Progress and analytics'),
         el('a', { class: 'btn', href: BASE }, 'Back to sets')),
+      makerNudge(GAME_ID),
       review,
     ));
     body.querySelector('h2')?.setAttribute('tabindex', '-1');

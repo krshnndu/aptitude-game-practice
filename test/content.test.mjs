@@ -41,7 +41,8 @@ test('every HTML page carries the independence disclaimer in its footer', () => 
   for (const f of pages) {
     const html = readFileSync(f, 'utf8');
     const footer = html.match(/<footer[\s\S]*?<\/footer>/)?.[0] ?? '';
-    assert.match(footer, /Independent practice/i, relative(root, f));
+    assert.match(footer, /Practice only/i, relative(root, f));
+    assert.match(footer, /href="#\/about">Full disclaimer/);
     assert.match(footer, /not affiliated/i);
     assert.match(footer, /Aon/);
     assert.match(footer, /Capgemini/);

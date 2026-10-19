@@ -17,7 +17,7 @@ import { createRunStream, freshKit, TUTORIAL_PUZZLE } from './stream.js';
 import { coachPuzzle, coachRun } from './coach.js';
 import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry, stampDvs } from '../../core/learn-hooks.js';
 import { dvsPanel, dvsRunSection } from '../../core/dvs-ui.js';
-import { endButton, guardRun, saveEndedRun, isLeave, isPartial, partialBanner, runLearning, studyLink, resume } from '../../core/endrun-ui.js';
+import { endButton, guardRun, saveEndedRun, isLeave, isPartial, partialBanner, runLearning, studyLink, resume, makerNudge } from '../../core/endrun-ui.js';
 import { effectiveOutcome } from './coach.js';
 
 const GAME_ID = 'latinsquare';
@@ -675,7 +675,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
       trackExplain(createExplainPanel(puzzle, { outcome: game.status, eff, text: resultSummary({ outcome: game.status, picks: game.pickCount, targets }), dvs: dvsPanel(GAME_ID, attempt, puzzle) }), attempt),
     );
     after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
-    after.append(timedNudge('latinsquare', setNo));
+    after.append(timedNudge('latinsquare', setNo), makerNudge(GAME_ID) ?? '');
     after.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
   }
 
@@ -1021,6 +1021,7 @@ async function renderRun(ctx, setNo, freshMode = false) {
           el('a', { class: 'btn', href: '#/analytics' }, 'Progress and analytics'),
           el('a', { class: 'btn', href: '#/latinsquare' }, 'Back to sets'),
         ),
+        makerNudge(GAME_ID),
         review,
       ),
     );

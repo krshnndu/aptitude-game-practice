@@ -15,36 +15,23 @@ import { mountDigitEquation } from '../games/digitequation/play.js';
 import { mountPatternRule } from '../games/patternrule/play.js';
 import { mountAnalytics } from './analytics-page.js';
 import { startBoard, mountBoard, track } from './board.js';
-import { GAMES } from './games.js';
+import { GAMES, gameName } from './games.js';
 import { mountAchievements } from './achievements-page.js';
 import { mountReport } from './report-page.js';
 import { mountReview } from './review-page.js';
-import { loadContext, tierChip, refreshNavChip } from './learn-ui.js';
+import { loadContext, refreshNavChip } from './learn-ui.js';
 import { mountStudy } from './study-page.js';
-import { resumeCard } from './endrun-ui.js';
+import { resume } from './endrun-ui.js';
+import { resumeActions } from './partial.js';
 import { createStore } from './store.js';
-import { gameStatus, nextStep, STATUS_LABEL } from './ux.js';
+import { gameStatus, STATUS_LABEL } from './ux.js';
 import { uxPrefs, coachMark } from './start-ui.js';
 
 const MOUNTS = { blockslide: mountBlockSlide, latinsquare: mountLatinSquare, gridmemory: mountGridMemory, operatorswitch: mountOperatorSwitch, digitequation: mountDigitEquation, patternrule: mountPatternRule };
 
 export { GAMES };
 
-// Badge chip and the review queue button; never lets a learning-data problem break the home page.
-function learningStrip() {
-  try {
-    const ctx = loadContext();
-    const total = Object.values(ctx.due).reduce((a, b) => a + b, 0);
-    return { ctx, node: el('section', { class: 'learn-strip', 'aria-label': 'Your learning' },
-      tierChip(ctx.skill),
-      el('a', { class: `btn${total ? ' btn-primary' : ''}`, href: '#/review/today' }, total ? `Review queue: ${total} due today` : 'Review queue: nothing due'),
-      el('a', { class: 'btn', href: '#/achievements' }, 'Achievements'),
-      el('a', { class: 'btn', href: '#/analytics' }, 'Progress and reports')) };
-  } catch (err) {
-    console.error(err);
-    return { ctx: null, node: null };
-  }
-}
+const TERMLY_HOME_URL = 'https://termly-iimr.vercel.app/welcome?utm_source=cogprep&utm_medium=referral&utm_campaign=maker_links';
 
 function safeNode(fn) {
   try {
@@ -55,113 +42,60 @@ function safeNode(fn) {
   }
 }
 
-// First visit: three steps, dismissible and remembered.
-function welcomeStrip() {
-  const prefs = uxPrefs();
-  if (prefs.welcomeSeen()) return null;
-  const node = el('section', { class: 'welcome callout', 'aria-label': 'How this site works' },
-    el('h2', { class: 'section-title', text: 'Welcome. Here is how it works' }),
-    el('ol', { class: 'welcome-steps' },
-      el('li', {}, el('strong', { text: 'Pick a game' }), ' below. Each one trains a different skill.'),
-      el('li', {}, el('strong', { text: 'Practice' }), ' with no timer: hints, and the best solution after every puzzle.'),
-      el('li', {}, el('strong', { text: 'Take the timed test' }), ' (6 minutes, like the real assessment), then ', el('strong', { text: 'review' }), ' your mistakes.')),
-    el('div', { class: 'after-actions' },
-      el('a', { class: 'btn btn-primary', href: `#/${GAMES[0].id}`, onclick: () => { prefs.dismissWelcome(); ev('feat', 'home', { name: 'welcome_dismiss', via: 'start' }); } }, `Start with ${GAMES[0].name}`),
-      el('button', { type: 'button', class: 'btn btn-quiet', onclick: () => { prefs.dismissWelcome(); ev('feat', 'home', { name: 'welcome_dismiss', via: 'close' }); node.remove(); } }, 'Got it, hide this')));
-  return node;
-}
-
-// Per-game status (New, In progress, Mastered) plus counts for the next step suggestion.
-function gameStates(ctx) {
-  const progress = createStore().get();
-  return GAMES.filter((g) => g.ready).map((g) => {
-    const tries = ctx?.byGame?.[g.id] ?? [];
-    return {
-      id: g.id,
-      name: g.name,
-      status: gameStatus(progress, g.id, { attempts: tries.length }),
-      practiced: tries.filter((a) => a.mode !== 'exam').length,
-      timed: tries.filter((a) => a.mode === 'exam').length,
-    };
-  });
-}
-
-// Continue card: the unfinished run or puzzle if there is one, else the last game played.
-function continueCard(ctx) {
-  const resumeNode = resumeCard();
-  if (resumeNode) return resumeNode;
+// Where a returning player picks up: the unfinished run or puzzle if there is one, else the last game played.
+function continueTarget(ctx) {
+  const entry = resume().last();
+  const act = resumeActions(entry);
+  if (act && GAMES.some((g) => g.id === entry.game)) {
+    const name = gameName(entry.game);
+    return act.resumeHref
+      ? { game: entry.game, kind: entry.kind, href: act.resumeHref, text: `${name}, set ${entry.set}, puzzle ${entry.k}` }
+      : { game: entry.game, kind: `${entry.kind}_review`, href: act.reviewHref, text: `Review ${name} timed test, set ${entry.set}` };
+  }
   const last = (ctx?.attempts ?? []).reduce((m, a) => (!m || (a.startedAt ?? 0) > (m.startedAt ?? 0) ? a : m), null);
   if (!last || !GAMES.some((g) => g.id === last.game)) return null;
-  const name = GAMES.find((g) => g.id === last.game).name;
-  return el('section', { class: 'resume-card callout', 'aria-label': 'Continue where you left off' },
-    el('h2', { class: 'section-title', text: 'Continue where you left off' }),
-    el('p', {}, `Last played: ${name}, Set ${last.set ?? 1} (${last.mode === 'exam' ? 'timed test' : 'practice'}).`),
-    el('div', { class: 'after-actions' },
-      el('a', { class: 'btn btn-primary', href: `#/${last.game}` }, `Continue ${name}`),
-      el('a', { class: 'btn', href: `#/review/${last.game}` }, 'Review my mistakes')));
+  return { game: last.game, kind: 'last', href: `#/${last.game}`, text: `${gameName(last.game)}, set ${last.set ?? 1}` };
 }
 
 function renderHome(main) {
-  const strip = learningStrip();
-  const due = strip.ctx?.due ?? {};
-  const states = safeNode(() => gameStates(strip.ctx)) ?? [];
-  const stateOf = Object.fromEntries(states.map((g) => [g.id, g]));
-  const step = safeNode(() => nextStep({ games: states, due: Object.values(due).reduce((a, b) => a + b, 0) }));
-  const welcome = safeNode(welcomeStrip);
+  const ctx = safeNode(loadContext);
+  const due = ctx?.due ?? {};
+  const dueTotal = Object.values(due).reduce((a, b) => a + b, 0);
+  const progress = safeNode(() => createStore().get());
+  const statusOf = (id) => safeNode(() => gameStatus(progress, id, { attempts: ctx?.byGame?.[id]?.length ?? 0 })) ?? 'new';
+  const cont = safeNode(() => continueTarget(ctx));
+  const first = GAMES.find((g) => g.ready);
+  const played = (ctx?.attempts?.length ?? 0) > 0;
+  const cta = cont
+    ? el('a', { class: 'btn btn-primary btn-hero', href: cont.kind === 'last' || cont.kind.endsWith('_review') ? `#/${cont.game}` : cont.href, onclick: () => ev('feat', 'home', { name: 'hero_continue', game: cont.game }) }, `Continue ${gameName(cont.game)}`)
+    : el('a', { class: 'btn btn-primary btn-hero', href: `#/${first.id}/practice/1/1`, onclick: () => ev('feat', 'home', { name: 'hero_start', game: first.id }) }, 'Start practicing');
   main.append(...[
     el('section', { class: 'hero' },
-      el('h1', { text: 'Practice game-based aptitude tests, free' }),
-      el('p', { class: 'lede' },
-        'Short original puzzles in the style of modern game-based cognitive assessments. ',
-        'Every puzzle has a computer-verified optimal solution, replayed step by step with the reasoning behind each move.'),
-    ),
-    welcome,
-    step && !welcome ? el('section', { class: 'next-step', 'aria-label': 'Suggested next step' },
-      el('p', {}, el('strong', { text: 'Suggested next step: ' }), step.text),
-      el('a', { class: 'btn btn-primary', href: step.href }, step.cta)) : null,
-    safeNode(() => continueCard(strip.ctx)),
-    strip.node,
-    el('h2', { class: 'section-title', text: 'Games' }),
+      el('h1', { text: 'Game-based aptitude practice. Free.' }),
+      el('p', { class: 'hero-sub', text: 'Capgemini and Aon style games. No account. Start in 10 seconds.' }),
+      cta,
+      played ? null : el('p', { class: 'muted small hero-hint', text: 'Pick a game, play 3 minutes, see your score.' })),
+    cont || dueTotal ? el('p', { class: 'resume-row' },
+      el('strong', { text: 'Resume: ' }),
+      cont ? el('a', { href: cont.href, onclick: () => ev('feat', cont.game, { name: 'resume', kind: cont.kind }) }, cont.text) : null,
+      dueTotal ? el('a', { class: 'due-chip', href: '#/review/today' }, `${dueTotal} due for review`) : null) : null,
+    el('h2', { class: 'sr-only', text: 'Games' }),
     el('ul', { class: 'card-grid', role: 'list' },
       GAMES.map((g) => {
-        const st = stateOf[g.id]?.status ?? 'new';
-        return el('li', { class: `game-card${g.ready ? '' : ' is-soon'}` },
-          el('div', { class: 'card-head' },
-            el('h3', { text: g.name }),
-            g.ready
-              ? el('span', { class: `badge badge-status badge-${st}`, title: st === 'mastered' ? 'Top set passed' : st === 'progress' ? 'You have started this game' : 'Not played yet', text: STATUS_LABEL[st] })
-              : el('span', { class: 'badge badge-soon', text: 'Coming soon' }),
-          ),
-          el('p', { class: 'card-skill', text: g.skill }),
-          el('p', { text: g.blurb }),
-          g.ready
-            ? el('a', { class: 'btn btn-primary', href: `#/${g.id}`, 'aria-label': `${st === 'new' ? 'Start' : 'Open'} ${g.name}: practice or timed test` }, st === 'new' ? `Start ${g.name}` : `Open ${g.name}`)
-            : el('span', { class: 'btn btn-disabled', 'aria-disabled': 'true' }, 'Coming soon'),
-          due[g.id] ? el('a', { class: 'due-link', href: `#/review/${g.id}` }, `${due[g.id]} due for review`) : null,
-        );
+        const st = statusOf(g.id);
+        const inner = [
+          el('span', { class: 'card-name', text: g.name }),
+          el('span', { class: 'badge badge-skill', text: g.tag }),
+          !g.ready ? el('span', { class: 'badge badge-soon', text: 'Soon' })
+            : st !== 'new' ? el('span', { class: `status-dot is-${st}`, title: STATUS_LABEL[st] }, el('span', { class: 'sr-only', text: STATUS_LABEL[st] })) : null,
+          g.ready && due[g.id] ? el('span', { class: 'due-chip', text: `${due[g.id]} due` }) : null,
+        ];
+        return el('li', {}, g.ready
+          ? el('a', { class: 'game-card', href: `#/${g.id}`, 'aria-label': `Open ${g.name}` }, inner)
+          : el('div', { class: 'game-card is-soon' }, inner));
       }),
     ),
-    el('section', { class: 'maker' },
-      el('h2', { class: 'section-title', text: 'More from the maker' }),
-      el('p', {}, 'CogPrep Arcade is built by Krishnendu Biswas, an IIM Ranchi student. Other things he has made:'),
-      el('ul', { class: 'maker-links' },
-        el('li', {}, el('a', { href: 'https://termly-iimr.vercel.app/welcome?utm_source=cogprep&utm_medium=referral&utm_campaign=maker_links', target: '_blank', rel: 'noopener' }, 'Termly'), ': a free term planner app for IIM Ranchi MBA students. Timetable, attendance, deadlines and friends\' free slots in one screen.'),
-        el('li', {}, el('a', { href: 'https://krishnendu.me/?utm_source=cogprep&utm_medium=referral&utm_campaign=maker_links', target: '_blank', rel: 'noopener' }, 'krishnendu.me'), ': projects, research and work, including AI agent systems.'),
-        el('li', {}, el('a', { href: 'https://www.linkedin.com/in/krshnndu/', target: '_blank', rel: 'noopener' }, 'LinkedIn'), ' and ', el('a', { href: 'https://github.com/krshnndu', target: '_blank', rel: 'noopener' }, 'GitHub'), ': connect or follow along.'),
-      ),
-    ),
-    el('section', { class: 'tips' },
-      el('h2', { class: 'section-title', text: 'How to use this site' }),
-      el('ul', {},
-        el('li', {}, el('strong', { text: 'Practice: ' }), 'one puzzle at a time, no clock, hints available.'),
-        el('li', {}, el('strong', { text: 'Timed test: ' }), 'like the real assessment: 6 minutes, puzzles keep coming, no undo or hints, solve or skip and move on. End and review stops a test at any point and shows your score so far; leaving the page saves it the same way.'),
-        el('li', {}, el('strong', { text: 'Study mode: ' }), 'browse every puzzle in a set with its solution walkthrough. No timer, not scored.'),
-        el('li', {}, el('strong', { text: 'Coach: ' }), 'after each puzzle and each run, findings computed from your own moves: wasted moves, thinking time, where you left the optimal line, skip timing.'),
-        el('li', {}, el('strong', { text: 'Progress: ' }), 'score trend per run, jumps, efficiency per set, personal bests, with a JSON backup of your history.'),
-        el('li', {}, el('strong', { text: 'Review and reports: ' }), 'failed or inefficient puzzles go to a mistake notebook and come back on a 1, 3, 7, 14, 30 day schedule. Retry them blind first, then compare with the optimal solution. Each game has a learning report with error trends and a strategy cheat sheet.'),
-        el('li', {}, el('strong', { text: 'Sets: ' }), 'each game has 5 sets (levels) of 10 puzzles. Score 70% in a set to unlock the next one. Everything is stored only in this browser.'),
-      ),
-    ),
+    el('p', { class: 'muted small maker-line' }, 'Also by the maker: ', el('a', { href: TERMLY_HOME_URL, target: '_blank', rel: 'noopener' }, 'Termly'), ', a term planner'),
   ].filter(Boolean));
 }
 
@@ -176,9 +110,25 @@ function renderAbout(main) {
     el('section', { class: 'prose' },
       el('h1', { text: 'About and legal' }),
       el('p', {}, 'CogPrep Arcade is a free, independent practice resource for candidates preparing for game-based cognitive aptitude assessments.'),
-      el('h2', { text: 'Tips and the welcome guide' }),
-      el('p', {}, 'Hid the welcome guide or a game tip too soon? Bring them all back.'),
+      el('p', { id: 'disclaimer' }, el('strong', { text: 'Independent practice.' }), ' This site is not affiliated with, endorsed by, or connected to Aon, Capgemini or any employer or assessment provider. All game names, puzzles, code and visuals are original. Scores here do not predict results in any real assessment.'),
+      el('h2', { text: 'How it works' }),
+      el('ul', {},
+        el('li', {}, el('strong', { text: 'Practice: ' }), 'one puzzle at a time, no clock, hints on.'),
+        el('li', {}, el('strong', { text: 'Timed test: ' }), '6 minutes like the real thing, no hints, scored.'),
+        el('li', {}, el('strong', { text: 'Study: ' }), 'browse every puzzle in a set with its solution.'),
+        el('li', {}, el('strong', { text: 'Coach: ' }), 'feedback from your own moves after each puzzle and run.'),
+        el('li', {}, el('strong', { text: 'Progress: ' }), 'score trends, personal bests and a backup of your history.'),
+        el('li', {}, el('strong', { text: 'Review: ' }), 'missed puzzles come back on a 1, 3, 7, 14, 30 day schedule.'),
+        el('li', {}, el('strong', { text: 'Sets: ' }), '5 levels of 10 puzzles per game. Score 70% to unlock the next.'),
+      ),
+      el('h2', { text: 'Tips' }),
+      el('p', {}, 'Hid a game tip too soon? Bring them all back.'),
       el('p', {}, tipsBtn),
+      el('h2', { text: 'Made by' }),
+      el('p', {}, 'Krishnendu Biswas, an IIM Ranchi student. ',
+        el('a', { href: 'https://krishnendu.me/?utm_source=cogprep&utm_medium=referral&utm_campaign=maker_links', target: '_blank', rel: 'noopener' }, 'krishnendu.me'), ', ',
+        el('a', { href: 'https://www.linkedin.com/in/krshnndu/', target: '_blank', rel: 'noopener' }, 'LinkedIn'), ', ',
+        el('a', { href: 'https://github.com/krshnndu', target: '_blank', rel: 'noopener' }, 'GitHub'), '.'),
       el('h2', { text: 'No affiliation' }),
       el('p', {}, 'This site is not affiliated with, endorsed by, sponsored by, or connected to Aon, Capgemini, or any employer, recruiter or assessment provider. Any product or company names mentioned are trademarks of their respective owners and are used only to describe the kind of assessment this site helps you practise for.'),
       el('h2', { text: 'Original work' }),
@@ -186,7 +136,7 @@ function renderAbout(main) {
       el('h2', { text: 'No guarantee' }),
       el('p', {}, 'Practice scores are for self-study only and do not predict or represent results in any real assessment.'),
       el('h2', { text: 'Privacy' }),
-      el('p', {}, 'There are no accounts, cookies or trackers. Your move log and progress are saved in your browser (localStorage). When a timed test reaches the end of its clock, its score summary (game, set, score, puzzles solved, duration) is uploaded with a random ID stored in your browser, plus a nickname if you chose one, to power the leaderboard. Runs you end early, or leave by changing page or closing the tab, are saved only in your browser and never uploaded or ranked. Anonymous usage is also recorded to improve the site: pages viewed, time on page, browser and operating system, screen size, language, broad timezone region, device class, referring site, which games and sets you open, per-puzzle results (solved, skipped, hint used, time taken, and short did vs should codes: your answer and the correct answer as game codes, the step where you first diverged and the time to it), learning page use (achievements viewed or unlocked, reports viewed, review library opened and retries completed), where runs are abandoned, whether a run ended early and how (button, navigation or page close), use of the End and review button, the resume card and study mode, onboarding choices (welcome guide dismissed, Practice, Timed test or Study mode chosen, tips dismissed or turned back on), outbound link clicks, and page load speed or script errors. All of it is tied only to a random ID stored in your browser. No IP address, name, email, location, keystrokes, move log or note text is stored. The learning layer (review notebook, your notes, achievements, report snapshots, the did vs should record kept with each attempt, runs ended early, the last unfinished run or puzzle behind the resume card, and which welcome and tip guides you dismissed) stays in your browser and is never uploaded. You can export, import or clear the history on the analytics page, or clear everything with your browser settings.'),
+      el('p', {}, 'There are no accounts, cookies or trackers. Your move log and progress are saved in your browser (localStorage). When a timed test reaches the end of its clock, its score summary (game, set, score, puzzles solved, duration) is uploaded with a random ID stored in your browser, plus a nickname if you chose one, to power the leaderboard. Runs you end early, or leave by changing page or closing the tab, are saved only in your browser and never uploaded or ranked. Anonymous usage is also recorded to improve the site: pages viewed, time on page, browser and operating system, screen size, language, broad timezone region, device class, referring site, which games and sets you open, per-puzzle results (solved, skipped, hint used, time taken, and short did vs should codes: your answer and the correct answer as game codes, the step where you first diverged and the time to it), learning page use (achievements viewed or unlocked, reports viewed, review library opened and retries completed), where runs are abandoned, whether a run ended early and how (button, navigation or page close), use of the End and review button, the resume row and study mode, onboarding choices (home start button, Practice, Timed test or Study mode chosen, tips dismissed or turned back on, the result screen Termly note shown or hidden), outbound link clicks, and page load speed or script errors. All of it is tied only to a random ID stored in your browser. No IP address, name, email, location, keystrokes, move log or note text is stored. The learning layer (review notebook, your notes, achievements, report snapshots, the did vs should record kept with each attempt, runs ended early, the last unfinished run or puzzle behind the resume row, and which tips you dismissed) stays in your browser and is never uploaded. You can export, import or clear the history on the analytics page, or clear everything with your browser settings.'),
     ),
   );
 }
