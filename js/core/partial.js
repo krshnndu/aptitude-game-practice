@@ -24,6 +24,12 @@ export function finalizeRun(run, exit = 'time') {
 
 export const isPartial = (run) => !!run && (run.status === 'partial' || run.partial === true);
 
+// Fresh timed practice (rank 0) is never ranked. Older runs have no rank field: they were ranked.
+export const isRanked = (run) => !!run && run.rank !== 0;
+
+// Only a complete ranked run goes to the leaderboard.
+export const isUploadable = (run) => isRanked(run) && !isPartial(run);
+
 // Leaving the page: there is no result screen to show, only saves.
 export const isLeave = (exit) => exit === 'nav' || exit === 'unload' || exit === 'hidden';
 
@@ -118,7 +124,7 @@ export function sanitizeResume(e, now = Date.now()) {
   if (now - e.at > RESUME_MAX_AGE || e.at - now > 60_000) return null;
   const out = { game: e.game, kind: e.kind, set: e.set, at: e.at };
   if (e.kind === 'practice') {
-    if (!Number.isInteger(e.k) || e.k < 1 || e.k > 99) return null;
+    if (!Number.isInteger(e.k) || e.k < 1 || e.k > 1_000_000) return null;
     out.k = e.k;
   } else {
     if (typeof e.runId !== 'string' || !/^[0-9a-z]{1,40}$/.test(e.runId)) return null;

@@ -3,7 +3,9 @@
 //
 // Attempt record:
 //   { id, game, set, puzzleId, mode: 'practice'|'exam', runId, source, startedAt, optimal,
-//     outcome: 'solved'|'skipped'|'timeout', moves, hintsUsed, events, metrics, dvs? }
+//     outcome: 'solved'|'skipped'|'timeout', moves, hintsUsed, events, metrics, dvs?, rank? }
+// rank (timed tests only): 1 for the ranked run (same puzzles for everyone, uploaded), 0 for fresh
+// timed practice (this browser's own puzzles, never uploaded).
 // dvs: compact did vs should codes { ans, opt, div, lat }, see dvs.js.
 // events: [{ t, type, p?, d? }], t in ms since the attempt started. Types:
 //   select (p, or null to clear), move (p, d), blocked (p, d: a move the board refused),
@@ -12,7 +14,7 @@
 //
 // Run record (a timed test): { id, game, set, seed, startedAt, endedAt, budgetMs, durationMs,
 //   score, attempted, solved, skipped, timedOut, puzzles: [compact per-puzzle rows],
-//   status?: 'complete'|'partial', partial?, exit? } (ended-early runs, see partial.js)
+//   status?: 'complete'|'partial', partial?, exit?, rank? } (ended-early runs, see partial.js)
 // Runs carry their own per-puzzle rows, so analytics keep working after old attempts are pruned.
 
 import { efficiency } from './score.js';
@@ -84,7 +86,7 @@ export function computeMetrics(events, { optimal = 0, moves = null, outcome = nu
 }
 
 // In-memory log for one attempt; end() returns the finished record (not yet saved).
-export function createAttemptLog({ game, set, puzzleId, mode, runId = null, source = 'pool', optimal, now = () => Date.now() }) {
+export function createAttemptLog({ game, set, puzzleId, mode, runId = null, source = 'pool', optimal, rank = null, now = () => Date.now() }) {
   const startedAt = now();
   const events = [];
   let done = null;
@@ -131,6 +133,7 @@ export function createAttemptLog({ game, set, puzzleId, mode, runId = null, sour
         metrics: computeMetrics(evs, { optimal, moves: moves ?? null, outcome }),
       };
       done.moves = done.metrics.moves;
+      if (rank === 0 || rank === 1) done.rank = rank;
       return done;
     },
   };
@@ -155,10 +158,11 @@ export function puzzleRow(a) {
 }
 
 // Pure: run record from its finished attempts.
-export function summarizeRun({ id, game, set, seed, startedAt, endedAt, budgetMs, attempts }) {
+export function summarizeRun({ id, game, set, seed, startedAt, endedAt, budgetMs, attempts, rank = null }) {
   const puzzles = attempts.map(puzzleRow);
   const score = puzzles.reduce((s, r) => s + r.efficiency, 0);
   return {
+    ...(rank === 0 || rank === 1 ? { rank } : {}),
     id: id ?? newId('r', startedAt),
     game,
     set,
@@ -217,6 +221,7 @@ export function sanitizeAttempt(a) {
     ? computeMetrics(events, { optimal: out.optimal, moves: out.moves, outcome: out.outcome })
     : { ...a.metrics };
   if (a.eventsPruned) out.eventsPruned = true;
+  if (a.rank === 0 || a.rank === 1) out.rank = a.rank;
   const dvs = sanitizeDvs(a.dvs);
   if (dvs) out.dvs = dvs;
   out.moves = out.metrics.moves;

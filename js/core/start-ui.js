@@ -7,6 +7,7 @@ import { createStore, defaultStorage } from './store.js';
 import { gameName } from './games.js';
 import { createUxPrefs, gameStatus, recommendedSet, nextPractice, modeFromHref } from './ux.js';
 import { pct, UNLOCK_THRESHOLD } from './score.js';
+import { runHref, nextFreshSlot } from './fresh-play.js';
 
 const store = createStore();
 export const uxPrefs = () => createUxPrefs(defaultStorage());
@@ -46,6 +47,16 @@ export function trackModes(root, game) {
   });
 }
 
+// Practice entry point for a set: the first shipped puzzle not played yet, then the weakest one,
+// and once all shipped puzzles were played, the next freshly generated one.
+export function practiceStart(game, set, idOf, perSet = 10) {
+  const progress = store.get();
+  const pr = progress?.games?.[game]?.[set]?.practice || {};
+  let all = true;
+  for (let k = 1; k <= perSet; k++) if (pr[idOf(set, k)] === undefined) all = false;
+  return all ? nextFreshSlot(game, set, perSet) : nextPractice(progress, game, set, idOf);
+}
+
 // The top of a game page: breadcrumb, title, one line summary, the two mode cards, study and how to play.
 // rules: nodes for the How to play panel. practiceText, timedText: what each mode does in this game.
 export function gameStart({ game, idOf, lede, rules = [], practiceText, timedText, setName = (s) => `Set ${s}` }) {
@@ -53,14 +64,16 @@ export function gameStart({ game, idOf, lede, rules = [], practiceText, timedTex
   const status = gameStatus(progress, game);
   const first = status === 'new';
   const set = recommendedSet(progress, game);
-  const k = nextPractice(progress, game, set, idOf);
+  const k = practiceStart(game, set, idOf);
   const practiceHref = `#/${game}/practice/${set}/${k}`;
-  const runHref = `#/${game}/run/${set}`;
   const how = el('details', { class: 'how-to-play', id: `how-${game}` },
     el('summary', {}, 'How to play'),
     el('div', { class: 'how-body' }, rules,
       el('h3', { text: 'Practice' }), el('p', { text: practiceText }),
       el('h3', { text: 'Timed test' }), el('p', { text: timedText }),
+      el('p', { text: 'The ranked timed test gives every player the same puzzles in the same order, so the leaderboard is fair. Fresh timed practice (not ranked) uses the same 6 minute clock with puzzles made for you that you have not seen before; it is never uploaded.' }),
+      el('h3', { text: 'Fresh puzzles' }),
+      el('p', { text: 'After the 10 puzzles of a set, practice keeps going with freshly generated puzzles of the same difficulty, each with its best solution. This browser keeps a short list of puzzles you have seen so they do not come back.' }),
       el('h3', { text: 'Sets and unlocking' }),
       el('p', { text: `Puzzles come in 5 sets of 10, from easy to hard. Set 1 is always open. Score ${pct(UNLOCK_THRESHOLD)} or more in a set (in its timed test, or as your practice average over all 10 puzzles) to unlock the next one.` })));
   if (first) how.open = true;
@@ -78,7 +91,8 @@ export function gameStart({ game, idOf, lede, rules = [], practiceText, timedTex
       el('h2', { class: 'section-title', text: first ? 'Start here: Practice' : 'Choose how to play' }),
       el('div', { class: 'mode-cards' },
         card('mode-practice', practiceHref, 'Practice', 'No timer, hints and solutions, learn', 'One puzzle at a time. Take as long as you need, use hints, then see the best solution step by step.', `Practise ${setName(set)}, puzzle ${k}`, first ? 'Start here' : null),
-        card('mode-timed', runHref, 'Timed test', '6 min, like the real assessment', 'Puzzles keep coming until the clock ends. No hints. Your score is saved to your progress.', `Start ${setName(set)} timed test`, null)),
+        card('mode-timed', runHref(game, set), 'Timed test (ranked)', '6 min, like the real assessment', 'Puzzles keep coming until the clock ends. No hints. Everyone gets the same puzzles, and your score goes on the leaderboard.', `Start ${setName(set)} timed test`, null),
+        card('mode-fresh', runHref(game, set, true), 'Fresh timed practice (not ranked)', '6 min, new puzzles every time', 'The same clock and rules with puzzles you have not seen. Counts toward your progress, never uploaded.', `Start ${setName(set)} fresh timed practice`, null)),
       el('div', { class: 'mode-more' },
         el('a', { class: 'btn', href: `#/study/${game}/${set}` }, 'Study mode: read worked solutions'),
         el('button', { type: 'button', class: 'btn', 'aria-controls': how.id, onclick: () => { how.open = true; how.scrollIntoView({ behavior: 'smooth', block: 'start' }); how.querySelector('summary').focus(); } }, 'How to play')),
@@ -91,11 +105,12 @@ export const setListHead = () => el('h2', { class: 'section-title', text: 'All s
 
 // Big Practice and Timed test buttons for one open set, then the numbered puzzle picker.
 export function setActions({ game, set, idOf, chips, unit = 'puzzle' }) {
-  const k = nextPractice(store.get(), game, set, idOf);
+  const k = practiceStart(game, set, idOf);
   return el('div', { class: 'set-actions' },
     el('div', { class: 'set-buttons' },
       el('a', { class: 'btn btn-primary', href: `#/${game}/practice/${set}/${k}` }, 'Practice'),
-      el('a', { class: 'btn btn-primary btn-outline', href: `#/${game}/run/${set}` }, 'Timed test (6 min)'),
+      el('a', { class: 'btn btn-primary btn-outline', href: runHref(game, set) }, 'Timed test (6 min, ranked)'),
+      el('a', { class: 'btn', href: runHref(game, set, true) }, 'Fresh timed practice (not ranked)'),
       el('a', { class: 'btn btn-quiet', href: `#/study/${game}/${set}` }, 'Study mode')),
     el('p', { class: 'chips-label muted small', id: `pick-${game}-${set}`, text: `Or practise a specific ${unit} (green = solved perfectly, gold = tried):` }),
     el('div', { class: 'chips', role: 'group', 'aria-labelledby': `pick-${game}-${set}` }, chips));
@@ -152,6 +167,19 @@ export function lockedPage(root, game, setNo, unit = 'puzzle') {
       el('a', { class: 'btn', href: `#/${game}/run/${setNo - 1}` }, `Timed test: Set ${setNo - 1}`),
       el('a', { class: 'btn btn-quiet', href: `#/${game}` }, `Back to ${gameName(game)}`))));
 }
+
+// On the timed test intro screen: which kind of run this is, and a link to the other kind.
+export function runModeNote(game, set, fresh) {
+  return el('p', { class: 'callout run-mode', role: 'note' },
+    el('strong', { text: fresh ? 'Fresh timed practice (not ranked). ' : 'Ranked timed test. ' }),
+    fresh
+      ? 'Puzzles made for you that you have not seen before. Your score counts toward your progress and review, but is never uploaded to the leaderboard. '
+      : 'Every player gets the same puzzles in the same order, so scores on the leaderboard are comparable. ',
+    el('a', { href: runHref(game, set, !fresh) }, fresh ? 'Take the ranked timed test instead' : 'Fresh timed practice (not ranked)'));
+}
+
+// Practice page title: shipped puzzles show "k of 10", fresh ones just their number.
+export const practiceTitle = (k, perSet = 10, unit = 'puzzle') => (k <= perSet ? `Practice: ${unit} ${k} of ${perSet}` : `Practice: fresh ${unit} ${k}`);
 
 // After a practice puzzle: invite the player to a scored timed test (this is what fills the leaderboard).
 export function timedNudge(game, set) {

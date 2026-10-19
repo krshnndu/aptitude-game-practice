@@ -48,6 +48,7 @@ export function modeFromHref(href) {
   const h = String(href || '');
   if (/^#\/study\//.test(h)) return 'study';
   if (/^#\/\w+\/practice\//.test(h)) return 'practice';
+  if (/^#\/\w+\/run\/\d+\/fresh/.test(h)) return 'fresh';
   if (/^#\/\w+\/run\//.test(h)) return 'timed';
   return null;
 }

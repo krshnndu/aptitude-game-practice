@@ -651,10 +651,10 @@ select, input[type="text"], input[type="search"], input:not([type]) {
 .btn-outline { background: var(--card); color: var(--accent); border: 2px solid var(--accent); }
 .btn-outline:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 10%, var(--card)); filter: none; }
 
-/* Game start: the two mode cards. */
+/* Game start: the mode cards (practice, ranked timed test, fresh timed practice). */
 .game-start .page-head { margin-bottom: 8px; }
 .mode-choose .section-title { margin-top: 8px; }
-.mode-cards { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin: 8px 0 12px; }
+.mode-cards { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin: 8px 0 12px; }
 .mode-card {
   position: relative; display: flex; flex-direction: column; gap: 6px;
   padding: 20px; min-height: 180px; border-radius: var(--radius);
@@ -672,7 +672,9 @@ select, input[type="text"], input[type="search"], input:not([type]) {
   padding: 8px 16px; border-radius: 8px; font-weight: 700;
   background: var(--accent); color: var(--accent-fg);
 }
-.mode-timed .mode-cta { background: var(--card); color: var(--accent); border: 2px solid var(--accent); }
+.mode-timed .mode-cta, .mode-fresh .mode-cta { background: var(--card); color: var(--accent); border: 2px solid var(--accent); }
+.mode-fresh { border-style: dashed; }
+.run-mode { margin: 0 0 12px; }
 .badge-start { position: absolute; top: 12px; right: 12px; color: var(--accent-fg); background: var(--ok); border-color: var(--ok); }
 .mode-more { display: flex; flex-wrap: wrap; gap: 8px; }
 .how-to-play { margin: 16px 0; padding: 0 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
