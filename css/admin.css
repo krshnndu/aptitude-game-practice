@@ -144,8 +144,13 @@
 .kind-ok .adm-kind { color: var(--ok); }
 .adm-go { min-height: 44px; min-width: 44px; }
 
-.adm-termly-row { padding: 8px 0; border-bottom: 1px solid var(--line); }
-.adm-termly-row .adm-bars { min-height: 0; gap: 6px; }
+.kind-note .adm-kind { color: var(--muted); }
+.kind-note .adm-action-text { color: var(--muted); }
+
+.adm-live-wrap { margin: 8px 0 12px; }
+.adm-live-title { margin: 0 0 6px; }
+.adm-live .adm-verdict { margin-top: 4px; }
+.adm-live-stamp { margin: 4px 0 0; font-size: 11px; }
 
 @media (min-width: 600px) {
   .adm-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }

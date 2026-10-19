@@ -16,6 +16,10 @@ export const MAX_DISMISS = 2;
 export const PLACEMENTS = ['landing_line', 'result_nudge', 'progress_card', 'review_done', 'achievement', 'board_foot', 'about_card', 'footer'];
 const TERMLY_URL = 'https://termly-iimr.vercel.app/welcome';
 
+// Placement token sent as `via` on maker_show, maker_dismiss and Termly link_click events. Mirrors the
+// server's tok('via', 20): safe characters only, at most 20 long.
+export const viaToken = (v) => String(v ?? '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 20);
+
 export const termlyUrl = (placement) => `${TERMLY_URL}?utm_source=cogprep&utm_medium=referral&utm_campaign=${encodeURIComponent(placement)}`;
 
 // local, session: Storage-like. now: clock in ms. State { shows: [ts], dismissed: n, clicked: bool }.
@@ -81,7 +85,7 @@ export function watchTermlyClicks(doc = globalThis.document) {
 }
 
 export const termlyLink = (placement, text = 'Termly') =>
-  el('a', { href: termlyUrl(placement), target: '_blank', rel: 'noopener', 'data-via': placement }, text);
+  el('a', { href: termlyUrl(placement), target: '_blank', rel: 'noopener', 'data-via': viaToken(placement) }, text);
 
 // Passive line, never counted: "<before><Termly link><after>".
 export const termlyLine = (placement, before, text, after = '', cls = 'muted small maker-line') =>
@@ -90,22 +94,22 @@ export const termlyLine = (placement, before, text, after = '', cls = 'muted sma
 // Governed prompt: one quiet line with a close button, or null when the governor says no.
 export function makerPrompt(placement, page, text, { cls = 'maker-nudge', onDismiss } = {}) {
   if (!governor().take(placement)) return null;
-  ev('feat', page, { name: 'maker_show', via: placement });
+  ev('feat', page, { name: 'maker_show', via: viaToken(placement) });
   const node = el('p', { class: cls },
     termlyLink(placement, text),
     el('button', { type: 'button', class: 'maker-nudge-close', 'aria-label': 'Hide this', onclick: () => {
       governor().dismiss();
-      ev('feat', page, { name: 'maker_dismiss', via: placement });
+      ev('feat', page, { name: 'maker_dismiss', via: viaToken(placement) });
       node.remove();
       onDismiss?.();
     } }, '×'));
   return node;
 }
 
-// Admin card rows from /stats. Needs stats.termly = { <placement>: { shown, clicks } } from the server;
-// returns null when it is missing (the server does not keep per placement data yet).
+// Admin card rows from /stats. Needs stats.termly = { <placement>: { shown, clicked } } from the server
+// (older payloads used `clicks`); returns null when it is missing.
 export function termlyFunnel(stats) {
   const t = stats?.termly;
   if (!t || typeof t !== 'object') return null;
-  return PLACEMENTS.map((p) => ({ placement: p, shown: Number(t[p]?.shown) || 0, clicks: Number(t[p]?.clicks) || 0 }));
+  return PLACEMENTS.map((p) => ({ placement: p, shown: Number(t[p]?.shown) || 0, clicks: Number(t[p]?.clicked ?? t[p]?.clicks) || 0 }));
 }

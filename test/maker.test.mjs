@@ -1,7 +1,7 @@
 // Termly governor: 1 prompt per session across placements, 3 per 7 days, stop after a click or two dismissals.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createGovernor, termlyUrl, termlyFunnel, PLACEMENTS, MAKER_KEY, MAKER_SESSION_KEY, WEEK_MS } from '../js/core/maker.js';
+import { createGovernor, termlyUrl, termlyFunnel, viaToken, PLACEMENTS, MAKER_KEY, MAKER_SESSION_KEY, WEEK_MS } from '../js/core/maker.js';
 import { memoryStorage } from '../js/core/store.js';
 
 const DAY = 864e5;
@@ -90,4 +90,16 @@ test('termlyFunnel: null without per placement data, rows when present', () => {
   assert.equal(rows.length, PLACEMENTS.length);
   assert.deepEqual(rows.find((r) => r.placement === 'progress_card'), { placement: 'progress_card', shown: 5, clicks: 1 });
   assert.deepEqual(rows.find((r) => r.placement === 'footer'), { placement: 'footer', shown: 0, clicks: 0 });
+});
+
+test('viaToken: every placement passes through unchanged, junk is stripped and capped at 20', () => {
+  for (const p of PLACEMENTS) assert.equal(viaToken(p), p);
+  assert.equal(viaToken('result_nudge<script>'), 'result_nudgescript');
+  assert.equal(viaToken('a'.repeat(30)).length, 20);
+  assert.equal(viaToken(undefined), '');
+});
+
+test('termlyFunnel reads the server "clicked" field', () => {
+  const rows = termlyFunnel({ termly: { footer: { shown: 0, clicked: 4 } } });
+  assert.equal(rows.find((r) => r.placement === 'footer').clicks, 4);
 });

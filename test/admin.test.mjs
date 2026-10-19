@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   sampleSuffix, pct, fraction, bucketLabel, reachVerdict, funnelLeak, funnelVerdict, qualityVerdict,
   retentionVerdict, termlyRows, termlyTotals, termlyVerdict, healthVerdicts, losingGames, topSources, insights,
-  SECTIONS,
+  SECTIONS, termlyPlacementRows, errorVisitorCount, errorText, errorsWidespread, liveSummary, LEAK_SHARE, LEAK_MIN_N,
 } from '../js/core/admin.js';
 
 // Healthy baseline: enough traffic, no errors, a flat funnel (any drop counts as a leak).
@@ -69,7 +69,7 @@ test('funnel leak picks the largest absolute adjacent drop', () => {
   // Upstream threshold skips stages with too few people.
   const small = { visited: 9, opened_a_game: 1 };
   assert.equal(funnelLeak(small, 10), null);
-  assert.match(funnelVerdict({}).text, /No drop/);
+  assert.match(funnelVerdict({}).text, /No stage loses a quarter/);
 });
 
 test('quality verdict flags timed runs that lose more than they finish', () => {
@@ -90,7 +90,10 @@ test('retention verdict: early signal below 20, sticky and one-and-done above', 
 test('termly totals fall back to site counters without a termly block', () => {
   const d = { features: { maker_show: 14, maker_dismiss: 3 }, linkClicks: { 'termly-iimr.vercel.app': 2, 'krishnendu.me': 5 } };
   assert.equal(termlyRows(d), null);
-  assert.deepEqual(termlyTotals(d), { perPlacement: false, rows: null, shown: 14, clicks: 2, dismissed: 3 });
+  assert.deepEqual(termlyTotals(d), { perPlacement: false, rows: null, shown: 14, clicks: 2, promptClicks: 2, dismissed: 3 });
+  // An empty termly block (no via events yet) keeps the totals fallback.
+  assert.equal(termlyTotals({ ...d, termly: {} }).perPlacement, false);
+  assert.equal(termlyTotals({ ...d, termly: {} }).shown, 14);
 });
 
 test('termly totals sum per placement rows when present', () => {
@@ -229,3 +232,92 @@ test('sections: next actions plus 6, first three open by default', () => {
   assert.deepEqual(SECTIONS.map((s) => s.open), [true, true, true, false, false, false, false]);
 });
 
+
+test('leak rule: needs a 25% loss from an upstream stage of 10 or more', () => {
+  assert.equal(LEAK_SHARE, 0.25);
+  assert.equal(LEAK_MIN_N, 10);
+  const flat = (v) => ({ started_a_game: v, selected_a_set: v, run_started: v, run_ended: v, result_action_taken: v, viewed_progress_or_board: v });
+  // 40 to 31 loses 9 (22.5%): not a leak.
+  assert.equal(funnelLeak({ visited: 40, opened_a_game: 31, ...flat(31) }), null);
+  // 40 to 30 loses exactly 25%: a leak.
+  assert.deepEqual(funnelLeak({ visited: 40, opened_a_game: 30, ...flat(30) }), { from: 'visited', to: 'opened_a_game', lost: 10, upstream: 40 });
+  // Big share from a tiny stage is ignored.
+  assert.equal(funnelLeak({ visited: 9, opened_a_game: 0 }), null);
+  // Small steady losses keep "Nothing urgent" reachable.
+  const f = { visited: 40, opened_a_game: 36, started_a_game: 33, selected_a_set: 30, run_started: 28, run_ended: 25, result_action_taken: 22, viewed_progress_or_board: 20 };
+  const out = insights(base({ funnel: f }));
+  assert.deepEqual(out.map((i) => i.kind), ['ok']);
+  assert.match(funnelVerdict(f).text, /^No stage loses a quarter/);
+});
+
+test('error visitor helpers', () => {
+  assert.equal(errorVisitorCount({}), null);
+  assert.equal(errorVisitorCount({ errorVisitors: 3 }), 3);
+  assert.equal(errorText(135, 1), '135 errors from 1 visitor');
+  assert.equal(errorText(1, 2), '1 error from 2 visitors');
+  assert.equal(errorText(4, null), '4 errors');
+  assert.equal(errorsWidespread({ errors: [{ n: 5 }], errorVisitors: 1 }), false);
+  assert.equal(errorsWidespread({ errors: [{ n: 5 }], errorVisitors: 2 }), true);
+  assert.equal(errorsWidespread({ errors: [{ n: 5 }] }), true);
+  assert.equal(errorsWidespread({ errors: [], errorVisitors: 4 }), false);
+});
+
+test('insights: errors from one visitor are a low priority note, not a Fix', () => {
+  const one = insights(base({ errors: [{ hash: 'x', n: 135, visitors: 1 }], errorVisitors: 1 }));
+  assert.deepEqual(one.map((i) => i.kind), ['ok', 'note']);
+  assert.equal(one[1].text, 'One visitor hit 135 errors; check the top error when convenient');
+  assert.equal(one[1].section, 'health');
+  const many = insights(base({ errors: [{ hash: 'x', n: 135, visitors: 4 }], errorVisitors: 4 }));
+  assert.equal(many[0].kind, 'broken');
+  assert.equal(many[0].text, 'Fix: 135 errors from 4 visitors');
+  // Slow p95 still raises Fix; the lone visitor errors stay a separate note.
+  const slow = insights(base({ errors: [{ hash: 'x', n: 7 }], errorVisitors: 1, perf: { n: 40, lcpP95: 4500 } }));
+  assert.equal(slow[0].text, 'Fix: slow load on mobile (LCP p95 4.5s)');
+  assert.equal(slow.at(-1).kind, 'note');
+  // Low traffic keeps the note too.
+  const low = insights(base({ uniqueVisitors: 5, errors: [{ hash: 'x', n: 2 }], errorVisitors: 1 }));
+  assert.deepEqual(low.map((i) => i.kind), ['traffic', 'note']);
+});
+
+test('health verdicts count affected visitors', () => {
+  const v = healthVerdicts(base({ errors: [{ hash: 'A', n: 135, visitors: 1 }], errorVisitors: 1 }));
+  assert.equal(v[0].text, '135 errors from 1 visitor, top: A');
+  assert.equal(v[0].tone, 'mid');
+  const w = healthVerdicts(base({ errors: [{ hash: 'A', n: 9, visitors: 3 }], errorVisitors: 3 }));
+  assert.equal(w[0].tone, 'warn');
+});
+
+test('termly rows read the server "clicked" field and keep prompt clicks apart from passive clicks', () => {
+  const d = { termly: { result_nudge: { shown: 30, clicked: 3, dismissed: 4 }, footer: { shown: 0, clicked: 5, dismissed: 0 } } };
+  const t = termlyTotals(d);
+  assert.equal(t.clicks, 8);
+  assert.equal(t.promptClicks, 3);
+  const rows = termlyPlacementRows(t.rows);
+  assert.deepEqual(rows.map((r) => r.placement), ['result_nudge', 'footer']);
+  assert.equal(rows[0].rate, 10);
+  assert.equal(rows[0].detail, 'Dismissed 4; click rate 10%');
+  assert.equal(rows[1].rate, null);
+  assert.equal(rows[1].detail, 'Passive link, dismissed 0');
+});
+
+test('termly placement rows: counts only below 20 shows, empty rows dropped', () => {
+  const rows = termlyPlacementRows(termlyRows({ termly: { review_done: { shown: 12, clicked: 2, dismissed: 1 }, progress_card: { shown: 0, clicked: 0, dismissed: 0 } } }));
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].rate, null);
+  assert.equal(rows[0].detail, 'Dismissed 1; rate after 20 shows');
+  assert.deepEqual(termlyPlacementRows(null), []);
+});
+
+test('insights: termly no clicks rule ignores passive link clicks', () => {
+  const d = base({ termly: { result_nudge: { shown: 25, clicked: 0, dismissed: 1 }, footer: { clicked: 6 } } });
+  assert.equal(insights(d).find((i) => i.kind === 'termly').text, 'Termly card gets no clicks, try new placement/copy');
+});
+
+test('live summary', () => {
+  assert.equal(liveSummary(null), null);
+  assert.deepEqual(liveSummary({ visitors: 4, inRun: 1, windowSec: 300 }), { visitors: 4, inRun: 1, mins: 5, label: 'Visitors in the last 5 min', status: '1 mid-run' });
+  assert.equal(liveSummary({ visitors: 0, inRun: 0, windowSec: 300 }).status, 'Nobody on the site right now');
+  assert.equal(liveSummary({ visitors: 3, inRun: 0 }).status, 'None mid-run');
+  // inRun never exceeds visitors.
+  assert.equal(liveSummary({ visitors: 2, inRun: 5 }).inRun, 2);
+});

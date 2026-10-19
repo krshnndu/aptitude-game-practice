@@ -1,7 +1,8 @@
 // Admin analytics dashboard (#/admin). Fetches /stats from the cogprep-board backend.
 // Token is kept in sessionStorage only (never saved permanently or committed).
-// Layout follows the admin design spec: a "Next actions" block, then six MECE accordion
-// sections (Reach, Engagement funnel, Game quality, Retention, Termly conversion, Health).
+// Layout follows the admin design spec: a "Live now" tile refreshed every 30s, a "Next actions"
+// block, then six MECE accordion sections (Reach, Engagement funnel, Game quality, Retention,
+// Termly conversion, Health).
 // Verdict helpers and insights() are pure and exported for tests.
 import { el } from './dom.js';
 import { base, cid } from './board.js';
@@ -15,6 +16,11 @@ const K_OPEN = 'cogprep.admin.open.v1';
 export const MIN_N = 20;
 // Hourly and weekday views only earn space past this many visitors per 30 days.
 const TIME_OF_DAY_MIN = 300;
+// A funnel stage is a leak only when it loses this share of the stage above, from at least LEAK_MIN_N people.
+export const LEAK_SHARE = 0.25;
+export const LEAK_MIN_N = 10;
+// Live tile refresh period.
+export const LIVE_MS = 30000;
 
 export const FUNNEL_STAGES = [
   ['visited', 'Visited'],
@@ -105,8 +111,9 @@ export function reachVerdict(cur, prev) {
   return verdict('Flat' + tail, 'mid');
 }
 
-// Largest absolute drop between adjacent funnel stages whose upstream count is at least minUpstream.
-export function funnelLeak(funnel, minUpstream = 0) {
+// Largest absolute drop between adjacent funnel stages that loses at least minShare of an upstream
+// stage holding at least minUpstream people; null when no stage qualifies.
+export function funnelLeak(funnel, minUpstream = LEAK_MIN_N, minShare = LEAK_SHARE) {
   const f = funnel || {};
   let best = null;
   for (let i = 1; i < FUNNEL_STAGES.length; i++) {
@@ -114,7 +121,7 @@ export function funnelLeak(funnel, minUpstream = 0) {
     const to = FUNNEL_STAGES[i][0];
     const up = num(f[from]);
     const lost = up - num(f[to]);
-    if (up < minUpstream || lost <= 0) continue;
+    if (up < minUpstream || lost <= 0 || lost < minShare * up) continue;
     if (!best || lost > best.lost) best = { from, to, lost, upstream: up };
   }
   return best;
@@ -123,7 +130,7 @@ export function funnelLeak(funnel, minUpstream = 0) {
 export function funnelVerdict(funnel) {
   const n = num(funnel?.visited);
   const leak = funnelLeak(funnel);
-  if (!leak) return verdict('No drop between stages yet' + sampleSuffix(n));
+  if (!leak) return verdict('No stage loses a quarter of the one above' + sampleSuffix(n));
   return verdict(`Biggest leak: ${STAGE_LABEL[leak.from]} to ${STAGE_LABEL[leak.to]} (lost ${leak.lost})` + sampleSuffix(n), 'warn');
 }
 
@@ -157,22 +164,39 @@ export function termlyRows(d) {
       placement,
       eligible: v.eligible === undefined || v.eligible === null ? null : num(v.eligible),
       shown: num(v.shown),
-      clicks: num(v.clicks),
+      clicks: num(v.clicked ?? v.clicks),
       dismissed: num(v.dismissed ?? v.dismiss),
     }));
 }
 
 export function termlyTotals(d) {
   const rows = termlyRows(d);
-  if (rows) {
-    const add = (k) => rows.reduce((a, r) => a + r[k], 0);
-    return { perPlacement: true, rows, shown: add('shown'), clicks: add('clicks'), dismissed: add('dismissed') };
+  if (rows && rows.length) {
+    const add = (k, list = rows) => list.reduce((a, r) => a + r[k], 0);
+    // Passive links are never "shown", so prompt verdicts only use clicks from placements with shows.
+    const promptClicks = add('clicks', rows.filter((r) => r.shown > 0));
+    return { perPlacement: true, rows, shown: add('shown'), clicks: add('clicks'), promptClicks, dismissed: add('dismissed') };
   }
   const f = d?.features || {};
   const clicks = Object.entries(d?.linkClicks || {})
     .filter(([host]) => /termly/i.test(host))
     .reduce((a, [, v]) => a + num(v), 0);
-  return { perPlacement: false, rows: null, shown: num(f.maker_show), clicks, dismissed: num(f.maker_dismiss) };
+  return { perPlacement: false, rows: null, shown: num(f.maker_show), clicks, promptClicks: clicks, dismissed: num(f.maker_dismiss) };
+}
+
+// Table rows for the Termly section, busiest first. rate is a percentage only once shown >= MIN_N.
+export function termlyPlacementRows(rows) {
+  return (rows || [])
+    .filter((r) => r.shown || r.clicks || r.dismissed || r.eligible)
+    .map((r) => {
+      const rate = pct(r.clicks, r.shown);
+      let detail;
+      if (!r.shown) detail = `Passive link, dismissed ${r.dismissed}`;
+      else if (rate === null) detail = `Dismissed ${r.dismissed}; rate after ${MIN_N} shows`;
+      else detail = `Dismissed ${r.dismissed}; click rate ${rate}%`;
+      return { placement: r.placement, shown: r.shown, clicks: r.clicks, dismissed: r.dismissed, rate, detail };
+    })
+    .sort((a, b) => b.shown - a.shown || b.clicks - a.clicks || a.placement.localeCompare(b.placement));
 }
 
 // Verdict for one placement row or for the site totals.
@@ -188,6 +212,35 @@ export function errorCount(d) {
   return (d?.errors || []).reduce((a, e) => a + num(e?.n), 0);
 }
 
+// Distinct visitors behind the client errors, or null when /stats does not report it.
+export function errorVisitorCount(d) {
+  const v = d?.errorVisitors;
+  return v === undefined || v === null ? null : num(v);
+}
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+// "135 errors from 1 visitor", or just "135 errors" when visitors are unknown.
+export function errorText(errs, visitors) {
+  return visitors === null ? plural(errs, 'error') : `${plural(errs, 'error')} from ${plural(visitors, 'visitor')}`;
+}
+
+// Errors are actionable when 2+ visitors hit them (or the server cannot say how many did).
+export function errorsWidespread(d) {
+  const v = errorVisitorCount(d);
+  return errorCount(d) > 0 && (v === null || v >= 2);
+}
+
+// Live tile text from d.live; null when the server has no live block.
+export function liveSummary(live) {
+  if (!live || typeof live !== 'object') return null;
+  const visitors = num(live.visitors);
+  const inRun = Math.min(num(live.inRun), visitors);
+  const mins = Math.max(1, Math.round(num(live.windowSec || 300) / 60));
+  const status = !visitors ? 'Nobody on the site right now' : inRun ? `${inRun} mid-run` : 'None mid-run';
+  return { visitors, inRun, mins, label: `Visitors in the last ${mins} min`, status };
+}
+
 const secs = (ms) => `${(num(ms) / 1000).toFixed(1)}s`;
 
 // Health verdict lines; an empty list means healthy.
@@ -197,7 +250,7 @@ export function healthVerdicts(d) {
   const perf = d?.perf || {};
   if (errs > 0) {
     const top = [...(d.errors || [])].sort((a, b) => num(b.n) - num(a.n))[0];
-    out.push(verdict(`${errs} errors, top: ${String(top?.hash || 'unknown')}`, 'warn'));
+    out.push(verdict(`${errorText(errs, errorVisitorCount(d))}, top: ${String(top?.hash || 'unknown')}`, errorsWidespread(d) ? 'warn' : 'mid'));
   }
   if (num(perf.lcpP95) > 2500) out.push(verdict(`Slow on mobile: LCP p95 ${secs(perf.lcpP95)}` + sampleSuffix(num(perf.n)), 'warn'));
   if (num(d?.uploadFails) > 0) out.push(verdict(`${num(d.uploadFails)} score uploads failed`, 'warn'));
@@ -242,9 +295,15 @@ export function insights(d) {
   const perf = d?.perf || {};
   const slow = num(perf.lcpP95) > 4000;
   const upFails = num(d?.uploadFails);
-  if (errs > 0 || upFails > 0 || slow) {
+  const errVis = errorVisitorCount(d);
+  const widespread = errorsWidespread(d);
+  // Errors from a single visitor are a low priority note at the end, not a Fix.
+  const lone = errs > 0 && !widespread
+    ? { kind: 'note', section: 'health', text: `One visitor hit ${plural(errs, 'error')}; check the top error when convenient` }
+    : null;
+  if (widespread || upFails > 0 || slow) {
     const parts = [];
-    if (errs > 0) parts.push(`${errs} errors`);
+    if (widespread) parts.push(errorText(errs, errVis));
     if (upFails > 0) parts.push(`${upFails} failed uploads`);
     if (slow) parts.push(`slow load on mobile (LCP p95 ${secs(perf.lcpP95)})`);
     out.push({ kind: 'broken', section: 'health', text: `Fix: ${parts.join(' / ')}` });
@@ -253,10 +312,11 @@ export function insights(d) {
   const uv = num(d?.uniqueVisitors);
   if (uv < MIN_N) {
     out.push({ kind: 'traffic', section: 'reach', text: 'Not enough traffic to judge anything yet; get visitors first' });
+    if (lone) out.push(lone);
     return out;
   }
 
-  const leak = funnelLeak(d?.funnel, 10);
+  const leak = funnelLeak(d?.funnel);
   if (leak) {
     if (leak.to === 'selected_a_set' && lockedTapTotal(d) > 0) {
       out.push({ kind: 'leak', section: 'quality', text: `People tap locked sets; consider unlocking one more (lost ${leak.lost} of ${leak.upstream} before picking a set)` });
@@ -272,9 +332,9 @@ export function insights(d) {
   }
 
   const tt = termlyTotals(d);
-  if (tt.shown >= MIN_N && tt.clicks === 0) {
+  if (tt.shown >= MIN_N && tt.promptClicks === 0) {
     out.push({ kind: 'termly', section: 'termly', text: 'Termly card gets no clicks, try new placement/copy' });
-  } else if (tt.shown >= MIN_N && tt.dismissed > 0 && tt.dismissed >= 3 * tt.clicks) {
+  } else if (tt.shown >= MIN_N && tt.dismissed > 0 && tt.dismissed >= 3 * tt.promptClicks) {
     out.push({ kind: 'termly', section: 'termly', text: 'Termly card is being dismissed' });
   }
 
@@ -288,6 +348,7 @@ export function insights(d) {
     const runs = num(d?.funnel?.run_ended ?? sumValues(d?.gameFinishes));
     out.push({ kind: 'ok', section: null, text: `Nothing urgent. ${runs} runs finished, ${tt.clicks} Termly clicks ${periodLabel(d?.days)}.` });
   }
+  if (lone) out.splice(Math.min(out.length, 4), 0, lone);
   return out.slice(0, 5);
 }
 
@@ -464,6 +525,7 @@ function reachSection(d, days) {
   return [
     tiles(
       tile(uv, `Unique visitors, ${days}d`, reachVerdict(uv, prev)),
+      tile(num(d.players), 'Players, finished 1+ run'),
       tile(d.medianSessionSec != null ? `${num(d.medianSessionSec)}s` : 'n/a', `Median session (n=${num(d.sessions)})`)),
     sub('Daily visitors'),
     dailyChart(d.daily, days),
@@ -540,9 +602,7 @@ function retentionSection(d) {
   const top = post.slice(0, 5).map(([k, v]) => pill(`${k.replace(/_/g, ' ')}: ${v}`));
   const rest = post.slice(5).reduce((a, [, v]) => a + num(v), 0);
   return [
-    tiles(
-      tile(fraction(num(r.returnedAfter7d), n), 'came back within 7d', retentionVerdict(r)),
-      tile(num(d.players), 'Players (finished 1+ run)')),
+    tiles(tile(fraction(num(r.returnedAfter7d), n), 'came back within 7d', retentionVerdict(r))),
     sub('Came back'),
     hbars([
       { label: 'Next day', value: num(r.returnedNextDay), track: n || 1 },
@@ -554,40 +614,53 @@ function retentionSection(d) {
   ];
 }
 
-function termlyMini(row) {
-  const rows = [];
-  if (row.eligible !== null) rows.push({ label: 'Eligible', value: row.eligible });
-  rows.push({ label: 'Shown', value: row.shown }, { label: 'Clicked', value: row.clicks });
-  return el('div', { class: 'adm-termly-row' },
-    el('h4', { class: 'adm-sub', text: row.placement.replace(/_/g, ' ') }),
-    el('p', { class: 'adm-line', text: `Clicked ${row.clicks} of ${row.shown} shown; dismissed ${row.dismissed}` }),
-    verdictLine(termlyVerdict(row)),
-    hbars(rows, { label: `Termly funnel for ${row.placement}` }));
-}
-
 function termlySection(d) {
   const t = termlyTotals(d);
   const out = [
-    tiles(tile(`${t.clicks} clicks`, `from ${t.shown} shows`, termlyVerdict(t)), tile(t.dismissed, 'Dismissed')),
+    tiles(
+      tile(`${t.clicks} clicks`, `from ${t.shown} shows`, termlyVerdict({ ...t, clicks: t.promptClicks })),
+      tile(t.dismissed, 'Dismissed')),
   ];
   if (t.perPlacement) {
-    const active = t.rows.filter((r) => r.shown || r.clicks || r.dismissed || r.eligible);
+    const rows = termlyPlacementRows(t.rows);
     out.push(sub('By placement'));
-    out.push(active.length ? el('div', {}, ...active.map(termlyMini)) : note('No placement has been shown yet.'));
+    out.push(rows.length
+      ? table('Termly by placement', ['Placement', 'Shown', 'Clicked'], rows.map((r) => {
+        const row = [r.placement.replace(/_/g, ' '), r.shown, r.clicks];
+        row.detail = r.detail;
+        return row;
+      }), 8)
+      : note('No placement has been shown or clicked yet.'));
+    const warn = t.rows.filter((r) => r.shown).map((r) => [r, termlyVerdict(r)]).filter(([, v]) => v.tone === 'warn');
+    out.push(...warn.map(([r, v]) => verdictLine(verdict(`${r.placement.replace(/_/g, ' ')}: ${v.text}`, v.tone))));
+    out.push(note(`Click rate shows once a placement has ${MIN_N} shows. Passive links count clicks only.`));
   } else {
     out.push(sub('Site totals'));
     out.push(hbars([{ label: 'Shown', value: t.shown }, { label: 'Clicked', value: t.clicks }], { label: 'Termly site totals' }));
-    out.push(note('Per placement counts need a server update.'));
+    out.push(note('No per placement data in this period yet.'));
   }
   return out;
+}
+
+// "Live now" tile body; refreshed in place by the live timer.
+function liveBody(live, stamp) {
+  const l = liveSummary(live);
+  if (!l) return [el('div', { class: 'adm-tile-num', text: 'n/a' }), el('div', { class: 'adm-tile-label', text: 'Live counts need a server update' })];
+  return [
+    el('div', { class: 'adm-tile-num', text: String(l.visitors) }),
+    el('div', { class: 'adm-tile-label', text: l.label }),
+    verdictLine(verdict(l.status, l.inRun ? 'ok' : 'neutral')),
+    el('p', { class: 'adm-note adm-live-stamp', text: `Updated ${stamp}, refreshes every ${LIVE_MS / 1000}s` }),
+  ];
 }
 
 function healthSection(d) {
   const perf = d.perf || {};
   const errs = errorCount(d);
   const lines = healthVerdicts(d);
+  const errVis = errorVisitorCount(d);
   const errRows = [...(d.errors || [])].sort((a, b) => num(b.n) - num(a.n)).map((e) => {
-    const r = [String(e.hash), num(e.n)];
+    const r = [String(e.hash), num(e.n), e.visitors === undefined || e.visitors === null ? 'n/a' : num(e.visitors)];
     r.detail = e.game ? String(e.game) : '';
     return r;
   });
@@ -595,13 +668,14 @@ function healthSection(d) {
   const ex = d.excluded || {};
   return [
     tiles(
-      tile(errs, 'Client errors', errs ? verdict(`${errs} errors`, 'warn') : verdict('No errors', 'ok')),
+      tile(errs, errVis === null ? 'Client errors' : `Client errors from ${plural(errVis, 'visitor')}`,
+        errs ? verdict(errorText(errs, errVis), errorsWidespread(d) ? 'warn' : 'mid') : verdict('No errors', 'ok')),
       tile(perf.lcpP50 ? secs(perf.lcpP50) : 'n/a', `LCP p50 (n=${num(perf.n)})`,
         num(perf.lcpP95) > 2500 ? verdict(`p95 ${secs(perf.lcpP95)}, slow`, 'warn') : verdict(perf.lcpP95 ? `p95 ${secs(perf.lcpP95)}` : 'No samples'))),
     ...lines.map(verdictLine),
     !lines.length ? verdictLine(verdict('Nothing broken or slow', 'ok')) : null,
     sub('Errors by type'),
-    errRows.length ? table('Client errors by type', ['Type', 'Count'], errRows) : note('No errors recorded.'),
+    errRows.length ? table('Client errors by type', ['Type', 'Count', 'Visitors'], errRows) : note('No errors recorded.'),
     sub('Builds'),
     builds.length ? table('Hits by build', ['Build', 'Hits'], builds) : note('No build data.'),
     note(`Excluded ${num(ex.botHits)} bot hits, ${num(ex.selfHits)} own hits.`),
@@ -620,6 +694,39 @@ export function mountAdmin(main) {
 
   let token = sessionStorage.getItem(K_ADMIN_TOKEN) || '';
   let days = 30;
+  let liveTimer = null;
+  let liveNode = null;
+  let liveBusy = false;
+
+  function stopLive() {
+    if (liveTimer) clearInterval(liveTimer);
+    liveTimer = null;
+    liveNode = null;
+  }
+
+  // Cheap refresh of the live tile only; skipped while the tab is hidden or a fetch is in flight.
+  async function refreshLive(b) {
+    if (!liveNode || liveBusy || document.visibilityState === 'hidden') return;
+    liveBusy = true;
+    try {
+      const res = await fetch(`${b}/stats?days=1`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok && liveNode) liveNode.replaceChildren(...liveBody((await res.json()).live, new Date().toLocaleTimeString()));
+    } catch { /* keep the last value */ } finally {
+      liveBusy = false;
+    }
+  }
+
+  function startLive(b) {
+    if (liveTimer) clearInterval(liveTimer);
+    liveTimer = setInterval(() => {
+      if (!liveNode?.isConnected) { stopLive(); return; }
+      refreshLive(b);
+    }, LIVE_MS);
+  }
+
+  let liveBase = '';
+  const onVisible = () => { if (document.visibilityState === 'visible' && liveTimer) refreshLive(liveBase); };
+  document.addEventListener('visibilitychange', onVisible);
 
   function renderLogin(message) {
     root.replaceChildren(
@@ -652,6 +759,7 @@ export function mountAdmin(main) {
   }
 
   async function loadStats() {
+    stopLive();
     root.replaceChildren(el('p', { class: 'muted adm-loading', role: 'status', text: 'Loading analytics...' }));
     const b = await base();
     if (!b) {
@@ -686,7 +794,7 @@ export function mountAdmin(main) {
           }))),
         el('button', {
           type: 'button', class: 'btn btn-quiet btn-small adm-logout', text: 'Log out',
-          onclick: () => { sessionStorage.removeItem(K_ADMIN_TOKEN); token = ''; renderLogin(); },
+          onclick: () => { stopLive(); sessionStorage.removeItem(K_ADMIN_TOKEN); token = ''; renderLogin(); },
         })),
       el('div', { class: 'adm-self' },
         el('span', { class: `badge ${isExcluded ? 'badge-ok' : 'badge-warn'}`, text: isExcluded ? 'This browser excluded' : 'This browser counted' }),
@@ -714,7 +822,7 @@ export function mountAdmin(main) {
 
   function nextActions(d, go) {
     const list = insights(d);
-    const KIND = { broken: 'Fix', leak: 'Leak', game: 'Game', termly: 'Termly', traffic: 'Traffic', ok: 'OK' };
+    const KIND = { broken: 'Fix', leak: 'Leak', game: 'Game', termly: 'Termly', traffic: 'Traffic', ok: 'OK', note: 'Note' };
     return [
       el('ol', { class: 'adm-actions' }, ...list.map((it) => el('li', { class: `adm-action kind-${it.kind}` },
         el('span', { class: 'badge adm-kind', text: KIND[it.kind] || it.kind }),
@@ -759,15 +867,22 @@ export function mountAdmin(main) {
       return det;
     });
     const ex = d.excluded || {};
+    liveNode = el('div', { class: 'adm-tile adm-live', role: 'status', 'aria-live': 'polite' }, ...liveBody(d.live, new Date().toLocaleTimeString()));
     root.replaceChildren(
       header(b),
       el('h1', { class: 'adm-title', text: 'Site analytics' }),
       el('p', { class: 'adm-note', text: `Last ${days} days. Counts exclude ${num(ex.botHits)} bot hits and ${num(ex.selfHits)} own hits.` }),
+      el('section', { class: 'adm-live-wrap', 'aria-label': 'Live now' }, el('h2', { class: 'adm-sec-title adm-live-title', text: 'Live now' }), liveNode),
       ...sections);
+    liveBase = b;
+    if (d.live) startLive(b);
   }
 
   if (token) loadStats();
   else renderLogin();
 
-  return () => {};
+  return () => {
+    stopLive();
+    document.removeEventListener('visibilitychange', onVisible);
+  };
 }
