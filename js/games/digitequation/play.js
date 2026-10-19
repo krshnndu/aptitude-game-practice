@@ -3,7 +3,8 @@
 // through the core recorder and reviewed by the coach.
 
 import { el } from '../../core/dom.js';
-import { gameStart, setActions, setListHead, lockedHint, lockedPage, progressLine, unlockToggle, trackModes, timedNudge } from '../../core/start-ui.js';
+import { gameStart, setActions, setListHead, lockedHint, lockedPage, progressLine, unlockToggle, trackModes, timedNudge, runModeNote, practiceTitle } from '../../core/start-ui.js';
+import { practicePuzzle, runSetup, seenFilter, markSeen, isFreshArg } from '../../core/fresh-play.js';
 import { runExtras } from '../../core/board.js';
 import { Countdown, formatClock } from '../../core/timer.js';
 import { createStore } from '../../core/store.js';
@@ -13,7 +14,7 @@ import { createGame, parsePuzzle, equationText, OPS, ERROR_TEXT } from './state.
 import { solve, hintTarget } from './solver.js';
 import { explainPuzzle, resultSummary, STRATEGY } from './explain.js';
 import { SET_CONFIGS, PUZZLES_PER_SET } from './gen.js';
-import { createRunStream, TUTORIAL_PUZZLE } from './stream.js';
+import { createRunStream, freshKit, TUTORIAL_PUZZLE } from './stream.js';
 import { coachPuzzle, coachRun } from './coach.js';
 import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry, stampDvs } from '../../core/learn-hooks.js';
 import { dvsPanel, dvsRunSection } from '../../core/dvs-ui.js';
@@ -600,15 +601,18 @@ function lockedNotice(root, setNo) {
 async function renderPractice(ctx, setNo, k, retry = null) {
   const { root } = ctx;
   const cfg = SET_CONFIGS.find((c) => c.set === setNo);
-  if (!cfg || (!retry && !(k >= 1 && k <= PUZZLES_PER_SET))) {
+  if (!cfg || (!retry && !(Number.isInteger(k) && k >= 1))) {
     root.append(el('p', { class: 'notice' }, 'Unknown puzzle. ', el('a', { href: BASE }, 'Back to sets')));
     return;
   }
   if (!retry && !isUnlocked(setNo)) return lockedNotice(root, setNo);
-  const puzzle = retry ? retry.puzzle : (await loadSet(setNo)).puzzles[k - 1];
+  // Past the shipped 10: a fresh puzzle for this browser.
+  const { puzzle, source } = retry
+    ? { puzzle: retry.puzzle, source: 'review' }
+    : practicePuzzle({ game: GAME_ID, set: setNo, k, puzzles: (await loadSet(setNo)).puzzles, kit: freshKit });
   const after = el('div', { class: 'after' });
-  const nextHref = retry ? retry.returnHash : k < PUZZLES_PER_SET ? `${BASE}/practice/${setNo}/${k + 1}` : BASE;
-  const nextLabel = retry ? 'Compare with the optimal solution' : k < PUZZLES_PER_SET ? 'Next puzzle' : 'Back to sets';
+  const nextHref = retry ? retry.returnHash : `${BASE}/practice/${setNo}/${k + 1}`;
+  const nextLabel = retry ? 'Compare with the optimal solution' : 'Next puzzle';
   const host = el('div', {});
   let area = null;
   let curLog = null;
@@ -634,7 +638,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
   function start() {
     area?.destroy();
     after.replaceChildren();
-    const log = createAttemptLog({ game: GAME_ID, set: setNo, puzzleId: puzzle.id, mode: 'practice', source: retry ? 'review' : 'pool', optimal: puzzle.optimal });
+    const log = createAttemptLog({ game: GAME_ID, set: setNo, puzzleId: puzzle.id, mode: 'practice', source, optimal: puzzle.optimal });
     curLog = log;
     area = createPlayArea(puzzle, {
       mode: 'practice',
@@ -663,7 +667,8 @@ async function renderPractice(ctx, setNo, k, retry = null) {
       after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
       return;
     }
-    store.recordPractice(GAME_ID, setNo, puzzle.id, efficiency(puzzle.optimal, game.placements, solved));
+    // Only the shipped 10 make up the practice average; fresh puzzles count in history and review.
+    if (k <= PUZZLES_PER_SET) store.recordPractice(GAME_ID, setNo, puzzle.id, efficiency(puzzle.optimal, game.placements, solved));
     after.replaceChildren(
       el('div', { class: 'after-actions' },
         el('button', { type: 'button', class: 'btn', onclick: () => start() }, 'Try again'),
@@ -679,7 +684,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
   root.append(
     el('div', { class: 'page-head play-head' },
       el('p', { class: 'crumbs' }, el('a', { href: BASE }, 'Digit Equation'), ` / Set ${setNo}: ${cfg.name}`),
-      el('h1', {}, retry ? 'Review: solve it again before you look' : `Practice: puzzle ${k} of ${PUZZLES_PER_SET}`),
+      el('h1', {}, retry ? 'Review: solve it again before you look' : practiceTitle(k, PUZZLES_PER_SET)),
       el('p', { class: 'muted' }, `Suggested pace: about ${cfg.paceSec} s. No clock in practice mode.`),
       retry ? null : el('div', { class: 'after-actions' }, endButton({ game: GAME_ID, practice: true, onEnd: endPractice }), studyLink(GAME_ID, setNo))),
     host,
@@ -703,7 +708,7 @@ function setExamChrome(on) {
   document.body.classList.toggle('exam-active', on);
 }
 
-async function renderRun(ctx, setNo) {
+async function renderRun(ctx, setNo, freshMode = false) {
   const { root } = ctx;
   const cfg = SET_CONFIGS.find((c) => c.set === setNo);
   if (!cfg) {
@@ -714,9 +719,11 @@ async function renderRun(ctx, setNo) {
   const data = await loadSet(setNo);
   const head = el('div', { class: 'page-head play-head' },
     el('p', { class: 'crumbs' }, el('a', { href: BASE }, 'Digit Equation'), ` / Set ${setNo}: ${cfg.name}`),
-    el('h1', {}, 'Timed test'));
+    el('h1', {}, freshMode ? 'Fresh timed practice (not ranked)' : 'Timed test (ranked)'));
   const body = el('div', {});
   root.append(head, body);
+  const ranked = freshMode ? null : runSetup(GAME_ID, setNo, false);
+  let rank = 1;
 
   let timer = null;
   let area = null;
@@ -765,7 +772,9 @@ async function renderRun(ctx, setNo) {
   body.append(el('section', { class: 'run-intro' },
     el('h2', { text: 'Before you start' }),
     el('ol', { class: 'exam-rules' },
-      el('li', {}, el('strong', { text: '6:00 on the clock. ' }), 'Puzzles keep coming until time is up: first this set\'s 10 in a shuffled order, then freshly generated puzzles of the same kind.'),
+      el('li', {}, el('strong', { text: '6:00 on the clock. ' }), freshMode
+        ? 'Puzzles keep coming until time is up: freshly generated puzzles of this set\'s kind that you have not seen before.'
+        : 'Puzzles keep coming until time is up: first this set\'s 10, then freshly generated puzzles of the same kind, in the same order for every player.'),
       el('li', {}, el('strong', { text: 'Fill the blanks, then Check. ' }), 'Tap a blank, then a tile (or type a digit). A wrong check is allowed: change a tile and check again.'),
       el('li', {}, el('strong', { text: 'Rules: ' }), `${OPS.x.sym} and ${OPS['/'].sym} before + and -, exact division only, no leading zeros, each tile as often as its count. The tray may hold decoys.`),
       el('li', {}, el('strong', { text: 'No hints. Skip is final. ' }), 'A skipped puzzle scores 0 and never comes back.'),
@@ -773,6 +782,7 @@ async function renderRun(ctx, setNo) {
       el('li', {}, el('strong', { text: 'Pace: ' }), `about ${cfg.paceSec} s per puzzle, so about ${atPace} puzzles in 6:00 for set ${setNo}. A good skip rule: no blank pinned down after ${Math.round(cfg.paceSec / 2)} s, or ${2 * cfg.paceSec} s spent, means skip.`),
       el('li', {}, el('strong', { text: 'Afterwards: ' }), 'the coach reviews every puzzle and the whole run. End and review stops the run at any point and shows your score so far; leaving the page saves it the same way. Runs ended early count toward progress and review but not the leaderboard.'),
     ),
+    runModeNote(GAME_ID, setNo, freshMode),
     el('h3', { text: 'Try the sample puzzle (untimed, not scored)' }),
     el('p', { class: 'muted', text: 'This is the exact exam screen: equation, tray, clock, tile counter and Skip.' }),
     tutorialHud,
@@ -796,7 +806,7 @@ async function renderRun(ctx, setNo) {
   let warned60 = false;
   let warned10 = false;
 
-  const buildRun = () => summarizeRun({ id: runId, game: GAME_ID, set: setNo, seed: runSeed, startedAt, endedAt: Date.now(), budgetMs: RUN_MS, attempts: results.map((r) => r.attempt) });
+  const buildRun = () => summarizeRun({ id: runId, game: GAME_ID, set: setNo, seed: runSeed, startedAt, endedAt: Date.now(), budgetMs: RUN_MS, attempts: results.map((r) => r.attempt), rank });
   // Tab hidden mid-run: keep a silent partial copy in case the browser never comes back.
   function checkpoint() {
     if (!finished && startedAt) saveEndedRun({ recorder, run: buildRun(), exit: 'hidden' });
@@ -807,10 +817,14 @@ async function renderRun(ctx, setNo) {
     tutorialArea = null;
     setExamChrome(true);
     head.hidden = true;
-    runSeed = (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0;
+    const setup = ranked ?? runSetup(GAME_ID, setNo, true);
+    runSeed = setup.seed;
+    rank = setup.rank;
     runId = newId('r');
     startedAt = Date.now();
-    stream = createRunStream({ puzzles: data.puzzles, seed: runSeed, setNo });
+    stream = ranked
+      ? createRunStream({ puzzles: data.puzzles, seed: runSeed, setNo, shuffle: false })
+      : createRunStream({ puzzles: data.puzzles, seed: runSeed, setNo, usePool: false, isSeen: seenFilter(GAME_ID) });
     unguard = guardRun({ onLeave: (exit) => finish(exit), onHide: checkpoint });
     // Registered after the page disposer, so it runs first: a route change mid-run saves it.
     ctx.onDispose(() => {
@@ -840,7 +854,8 @@ async function renderRun(ctx, setNo) {
     if (finished) return;
     area?.destroy();
     const { puzzle, source, index } = stream.next();
-    const log = createAttemptLog({ game: GAME_ID, set: setNo, puzzleId: puzzle.id, mode: 'exam', runId, source, optimal: puzzle.optimal });
+    if (!ranked) markSeen(GAME_ID, freshKit.keyOf(puzzle));
+    const log = createAttemptLog({ game: GAME_ID, set: setNo, puzzleId: puzzle.id, mode: 'exam', runId, source, optimal: puzzle.optimal, rank });
     current = { puzzle, source, index, log, done: false };
     area = createPlayArea(puzzle, {
       mode: 'exam',
@@ -889,7 +904,8 @@ async function renderRun(ctx, setNo) {
     const slots = Math.max(PUZZLES_PER_SET, results.length);
     const avg = averageEfficiency(run.score, slots);
     const wasOpen = setNo < SET_CONFIGS.length ? isUnlocked(setNo + 1) : true;
-    const { improved, best } = store.recordRun(GAME_ID, setNo, run.score, slots);
+    // Fresh timed practice counts in history and review but not in the set's best ranked score.
+    const { improved, best } = ranked ? store.recordRun(GAME_ID, setNo, run.score, slots) : { improved: false, best: store.getSet(GAME_ID, setNo).bestScore };
     const nowOpen = setNo < SET_CONFIGS.length ? isUnlocked(setNo + 1) : true;
     const puzzlesById = new Map(results.map((r) => [r.puzzle.id, r.puzzle]));
     // Leaving the page: save to the review library without the (slower) coach, and render nothing.
@@ -901,7 +917,7 @@ async function renderRun(ctx, setNo) {
     const runCoach = coachRun(run, results.map((r) => r.attempt), puzzlesById, { paceSec: cfg.paceSec, budgetMs: RUN_MS, history });
     noteRun(GAME_ID, run, results.map((r) => r.attempt), runCoach.perPuzzle, puzzlesById);
     const partial = isPartial(run);
-    const [takeawaysNode, notAttemptedNode] = runLearning({ game: GAME_ID, run, attempts: results.map((r) => r.attempt), habits: runCoach.habits, perPuzzle: runCoach.perPuzzle, pool: data.puzzles, solve: studyWalkthrough, onDispose: ctx.onDispose });
+    const [takeawaysNode, notAttemptedNode] = runLearning({ game: GAME_ID, run, attempts: results.map((r) => r.attempt), habits: runCoach.habits, perPuzzle: runCoach.perPuzzle, pool: ranked ? data.puzzles : [], solve: studyWalkthrough, onDispose: ctx.onDispose });
 
     const review = el('div', { class: 'review-host' });
     const rows = results.map((r) => {
@@ -939,9 +955,9 @@ async function renderRun(ctx, setNo) {
         el('div', { class: 'tile' }, el('span', { class: 'tile-label', text: 'Run score' }), el('strong', { text: round2(run.score).toFixed(2) })),
         el('div', { class: 'tile' }, el('span', { class: 'tile-label', text: 'Solved' }), el('strong', { text: `${run.solved} of ${run.attempted} reached` })),
         el('div', { class: 'tile' }, el('span', { class: 'tile-label', text: 'Average efficiency' }), el('strong', { text: pct(avg) })),
-        el('div', { class: 'tile' }, el('span', { class: 'tile-label', text: 'Best for this set' }), el('strong', { text: `${round2(best).toFixed(2)}${improved ? ' (new best)' : ''}` })),
+        el('div', { class: 'tile' }, el('span', { class: 'tile-label', text: ranked ? 'Best for this set' : 'Best ranked run' }), el('strong', { text: `${round2(best).toFixed(2)}${improved ? ' (new best)' : ''}` })),
       ),
-      runExtras(GAME_ID, setNo, improved, { partial }),
+      runExtras(GAME_ID, setNo, improved, { partial, ranked: !!ranked }),
       takeawaysNode,
       !wasOpen && nowOpen ? el('p', { class: 'callout callout-ok', text: `Set ${setNo + 1} unlocked. Nice work.` }) : null,
       avg < UNLOCK_THRESHOLD && setNo < SET_CONFIGS.length && !nowOpen
@@ -1027,7 +1043,7 @@ export async function mountDigitEquation(main, args = []) {
     try {
       if (!mode) renderMenu(ctx);
       else if (mode === 'practice') await renderPractice(ctx, Number(a), Number(b) || 1);
-      else if (mode === 'run') await renderRun(ctx, Number(a));
+      else if (mode === 'run') await renderRun(ctx, Number(a), isFreshArg(b));
       else if (mode === 'retry') await renderRetry(ctx);
       else root.append(el('p', { class: 'notice' }, 'Unknown page. ', el('a', { href: BASE }, 'Back to Digit Equation')));
     } catch (err) {

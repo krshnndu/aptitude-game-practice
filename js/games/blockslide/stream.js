@@ -80,12 +80,18 @@ export function generateFresh(setNo, seed, { maxStates = 300_000, maxAttempts = 
 }
 
 // takeFresh(): returns a fresh puzzle or null when none is ready.
-export function createRunStream({ puzzles, seed, takeFresh = () => null }) {
+// shuffle: false keeps the shipped order (the ranked run). usePool: false starts with fresh puzzles
+// (fresh timed practice; the pool is then only the source of variants). ordered: one takeFresh()
+// per fresh slot and a variant when it yields nothing new, so the sequence depends only on the
+// seed and not on how fast puzzles were built (the ranked run waits for each one instead).
+// isSeen(key): puzzles to skip besides the shipped ones (the local seen-list).
+export function createRunStream({ puzzles, seed, takeFresh = () => null, shuffle = true, usePool = true, ordered = false, isSeen = () => false }) {
   if (!puzzles.length) throw new Error('empty puzzle pool');
   const rng = createRng(seed);
-  const order = rng.shuffle(puzzles);
+  const order = shuffle ? rng.shuffle(puzzles) : puzzles.slice();
   const transforms = rng.shuffle(VARIANT_TRANSFORMS);
   const seen = new Set(puzzles.map(layoutKey));
+  const poolSize = usePool ? order.length : 0;
   let drawn = 0;
   let variants = 0;
 
@@ -96,22 +102,34 @@ export function createRunStream({ puzzles, seed, takeFresh = () => null }) {
     return transformPuzzle(base, t);
   }
 
+  function fresh() {
+    if (ordered) {
+      const p = takeFresh();
+      if (!p) return null;
+      const key = layoutKey(p);
+      if (seen.has(key)) return null;
+      seen.add(key);
+      return p;
+    }
+    for (let p = takeFresh(); p; p = takeFresh()) {
+      const key = layoutKey(p);
+      if (seen.has(key) || isSeen(key)) continue;
+      seen.add(key);
+      return p;
+    }
+    return null;
+  }
+
   return {
     next() {
       let puzzle;
       let source;
-      if (drawn < order.length) {
+      if (drawn < poolSize) {
         puzzle = order[drawn];
         source = 'pool';
       } else {
-        for (let fresh = takeFresh(); fresh; fresh = takeFresh()) {
-          const key = layoutKey(fresh);
-          if (seen.has(key)) continue;
-          seen.add(key);
-          puzzle = fresh;
-          source = 'generated';
-          break;
-        }
+        puzzle = fresh();
+        source = 'generated';
         if (!puzzle) {
           puzzle = variant();
           source = 'variant';
@@ -120,14 +138,21 @@ export function createRunStream({ puzzles, seed, takeFresh = () => null }) {
       drawn++;
       return { puzzle, source, index: drawn - 1 };
     },
+    // True when the next puzzle comes from the generator (the UI may wait for it).
+    get needsFresh() {
+      return drawn >= poolSize;
+    },
     get drawn() {
       return drawn;
     },
     get poolSize() {
-      return order.length;
+      return poolSize;
     },
   };
 }
+
+// Practice slots past the shipped 10 and the seen-list use these.
+export const freshKit = { keyOf: layoutKey, make: (setNo, seed) => generateFresh(setNo, seed) };
 
 // Untimed sample puzzle on the pre-run tutorial screen: one blocker in the ball's lane.
 export const TUTORIAL_PUZZLE = {

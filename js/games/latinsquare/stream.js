@@ -57,11 +57,15 @@ export function variantPuzzle(puzzle, seed, tag = seed.toString(36)) {
 }
 
 // makeFresh(k): returns the k-th fresh puzzle or throws. Defaults to generateFresh for setNo.
-export function createRunStream({ puzzles, seed, setNo, makeFresh = (k) => generateFresh(setNo, freshSeed(seed, k)) }) {
+// shuffle: false keeps the shipped order (the ranked run). usePool: false starts with fresh puzzles
+// (fresh timed practice; the pool then only feeds variants). isSeen(key): puzzles to skip besides the
+// shipped ones (the local seen-list).
+export function createRunStream({ puzzles, seed, setNo, makeFresh = (k) => generateFresh(setNo, freshSeed(seed, k)), shuffle = true, usePool = true, isSeen = () => false }) {
   if (!puzzles.length) throw new Error('empty puzzle pool');
   const rng = createRng(seed);
-  const order = rng.shuffle(puzzles);
+  const order = shuffle ? rng.shuffle(puzzles) : puzzles.slice();
   const seen = new Set(puzzles.map(patternKey));
+  const poolSize = usePool ? order.length : 0;
   let drawn = 0;
   let freshK = 0;
   let variants = 0;
@@ -76,7 +80,7 @@ export function createRunStream({ puzzles, seed, setNo, makeFresh = (k) => gener
       }
       if (!p) continue;
       const key = patternKey(p);
-      if (seen.has(key)) continue;
+      if (seen.has(key) || isSeen(key)) continue;
       seen.add(key);
       return p;
     }
@@ -93,7 +97,7 @@ export function createRunStream({ puzzles, seed, setNo, makeFresh = (k) => gener
     next() {
       let puzzle;
       let source;
-      if (drawn < order.length) {
+      if (drawn < poolSize) {
         puzzle = order[drawn];
         source = 'pool';
       } else {
@@ -111,10 +115,18 @@ export function createRunStream({ puzzles, seed, setNo, makeFresh = (k) => gener
       return drawn;
     },
     get poolSize() {
-      return order.length;
+      return poolSize;
     },
   };
 }
+
+// Practice slots past the shipped 10 and the seen-list use these. A practice variant (only when no
+// fresh puzzle can be built) carries a p<k> tag; review keeps it as a compact copy of the puzzle.
+export const freshKit = {
+  keyOf: patternKey,
+  make: (setNo, seed) => generateFresh(setNo, seed),
+  variant: (base, seed, k) => variantPuzzle(base, seed, `p${k}`),
+};
 
 // Untimed sample on the pre-run screen: row 3 has triangle and circle, column 2 adds square, so the
 // ? cell can only be diamond.

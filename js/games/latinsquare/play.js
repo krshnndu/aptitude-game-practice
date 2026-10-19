@@ -3,7 +3,8 @@
 // Every attempt is logged through the core recorder and reviewed by coach.js.
 
 import { el } from '../../core/dom.js';
-import { gameStart, setActions, setListHead, lockedHint, lockedPage, progressLine, unlockToggle, trackModes, timedNudge } from '../../core/start-ui.js';
+import { gameStart, setActions, setListHead, lockedHint, lockedPage, progressLine, unlockToggle, trackModes, timedNudge, runModeNote, practiceTitle } from '../../core/start-ui.js';
+import { practicePuzzle, runSetup, seenFilter, markSeen, isFreshArg } from '../../core/fresh-play.js';
 import { runExtras } from '../../core/board.js';
 import { Countdown, formatClock } from '../../core/timer.js';
 import { createStore } from '../../core/store.js';
@@ -12,7 +13,7 @@ import { efficiency, averageEfficiency, pct, round2, UNLOCK_THRESHOLD } from '..
 import { SYMBOLS, createGame, parsePuzzle, cellLabel, rowOf, colOf, BLANK, examPoints, examRunScore } from './state.js';
 import { analyse, explainPuzzle, wrongPickReason, resultSummary, STRATEGY, symName } from './explain.js';
 import { SET_CONFIGS, PUZZLES_PER_SET } from './gen.js';
-import { createRunStream, TUTORIAL_PUZZLE } from './stream.js';
+import { createRunStream, freshKit, TUTORIAL_PUZZLE } from './stream.js';
 import { coachPuzzle, coachRun } from './coach.js';
 import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry, stampDvs } from '../../core/learn-hooks.js';
 import { dvsPanel, dvsRunSection } from '../../core/dvs-ui.js';
@@ -594,18 +595,20 @@ function lockedNotice(root, setNo) {
 async function renderPractice(ctx, setNo, k, retry = null) {
   const { root } = ctx;
   const cfg = SET_CONFIGS.find((c) => c.set === setNo);
-  if (!cfg || (!retry && !(k >= 1 && k <= PUZZLES_PER_SET))) {
+  if (!cfg || (!retry && !(Number.isInteger(k) && k >= 1))) {
     root.append(el('p', { class: 'notice' }, 'Unknown puzzle. ', el('a', { href: '#/latinsquare' }, 'Back to sets')));
     return;
   }
   if (!retry && !isUnlocked(setNo)) return lockedNotice(root, setNo);
-  const puzzle = retry ? retry.puzzle : (await loadSet(setNo)).puzzles[k - 1];
+  // Past the shipped 10: a fresh puzzle for this browser, never one it has seen.
+  const slot = retry ? { puzzle: retry.puzzle, source: 'review' } : practicePuzzle({ game: GAME_ID, set: setNo, k, puzzles: (await loadSet(setNo)).puzzles, kit: freshKit });
+  const { puzzle, source } = slot;
   const targets = puzzle.targets.length;
 
   const after = el('div', { class: 'after' });
   const prevLink = !retry && k > 1 ? el('a', { class: 'btn btn-quiet', href: `#/latinsquare/practice/${setNo}/${k - 1}` }, 'Previous puzzle') : null;
-  const nextHref = retry ? retry.returnHash : k < PUZZLES_PER_SET ? `#/latinsquare/practice/${setNo}/${k + 1}` : '#/latinsquare';
-  const nextLabel = retry ? 'Compare with the optimal solution' : k < PUZZLES_PER_SET ? 'Next puzzle' : 'Back to sets';
+  const nextHref = retry ? retry.returnHash : `#/latinsquare/practice/${setNo}/${k + 1}`;
+  const nextLabel = retry ? 'Compare with the optimal solution' : 'Next puzzle';
   let area = null;
   let curLog = null;
   const host = el('div', {});
@@ -631,7 +634,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
   function start() {
     area?.destroy();
     after.replaceChildren();
-    const log = createAttemptLog({ game: GAME_ID, set: setNo, puzzleId: puzzle.id, mode: 'practice', source: retry ? 'review' : 'pool', optimal: targets });
+    const log = createAttemptLog({ game: GAME_ID, set: setNo, puzzleId: puzzle.id, mode: 'practice', source, optimal: targets });
     curLog = log;
     area = createPlayArea(puzzle, { mode: 'practice', log, onDone: (game, { hintsUsed }) => finish(game, hintsUsed, log) });
     host.replaceChildren(area.root);
@@ -656,7 +659,8 @@ async function renderPractice(ctx, setNo, k, retry = null) {
       after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
       return;
     }
-    store.recordPractice(GAME_ID, setNo, puzzle.id, eff);
+    // Only the shipped 10 make up the practice average; fresh puzzles count in history and review.
+    if (k <= PUZZLES_PER_SET) store.recordPractice(GAME_ID, setNo, puzzle.id, eff);
     after.replaceChildren(
       el('div', { class: 'after-actions' },
         el('button', { type: 'button', class: 'btn', onclick: () => start() }, 'Try again'),
@@ -673,7 +677,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
   root.append(
     el('div', { class: 'page-head play-head' },
       el('p', { class: 'crumbs' }, el('a', { href: '#/latinsquare' }, 'Latin Square'), ` / Set ${setNo}: ${cfg.name}`),
-      el('h1', {}, retry ? 'Review: solve it again before you look' : `Practice: puzzle ${k} of ${PUZZLES_PER_SET}`),
+      el('h1', {}, retry ? 'Review: solve it again before you look' : practiceTitle(k, PUZZLES_PER_SET)),
       el('p', { class: 'muted' }, `Every symbol once per row and column. Suggested pace: about ${cfg.paceSec} s. No clock in practice mode.`),
       retry ? null : el('div', { class: 'after-actions' }, endButton({ game: GAME_ID, practice: true, onEnd: endPractice }), studyLink(GAME_ID, setNo)),
     ),
@@ -698,7 +702,7 @@ function setExamChrome(on) {
 
 const OUTCOME_LABEL = { solved: ['badge-ok', 'Right'], wrong: ['badge-warn', 'Wrong'], skipped: ['badge-soon', 'Skipped'], timeout: ['badge-soon', 'Time up'] };
 
-async function renderRun(ctx, setNo) {
+async function renderRun(ctx, setNo, freshMode = false) {
   const { root } = ctx;
   const cfg = SET_CONFIGS.find((c) => c.set === setNo);
   if (!cfg) {
@@ -711,10 +715,11 @@ async function renderRun(ctx, setNo) {
 
   const head = el('div', { class: 'page-head play-head' },
     el('p', { class: 'crumbs' }, el('a', { href: '#/latinsquare' }, 'Latin Square'), ` / Set ${setNo}: ${cfg.name}`),
-    el('h1', {}, 'Timed test'),
+    el('h1', {}, freshMode ? 'Fresh timed practice (not ranked)' : 'Timed test (ranked)'),
   );
   const body = el('div', {});
   root.append(head, body);
+  const ranked = freshMode ? null : runSetup(GAME_ID, setNo, false);
 
   let timer = null;
   let area = null;
@@ -722,6 +727,7 @@ async function renderRun(ctx, setNo) {
   let finished = false;
   let advanceHandle = null;
   let stream = null;
+  let rank = 1;
   let current = null;
   let runSeed = 0;
   let runId = null;
@@ -765,13 +771,16 @@ async function renderRun(ctx, setNo) {
     el('section', { class: 'run-intro' },
       el('h2', { text: 'Before you start' }),
       el('ol', { class: 'exam-rules' },
-        el('li', {}, el('strong', { text: '6:00 on the clock. ' }), 'Puzzles keep coming until time is up: first this set\'s 10 in a shuffled order, then freshly generated puzzles of the same difficulty.'),
+        el('li', {}, el('strong', { text: '6:00 on the clock. ' }), freshMode
+          ? 'Puzzles keep coming until time is up: freshly generated puzzles of this set\'s difficulty that you have not seen before.'
+          : 'Puzzles keep coming until time is up: first this set\'s 10, then freshly generated puzzles of the same difficulty, in the same order for every player.'),
         el('li', {}, el('strong', { text: 'Answers are final. ' }), 'Pick a symbol for each ? cell (tap it, or press its number or letter). You will not be told right or wrong until the end.'),
         el('li', {}, el('strong', { text: 'Scoring: ' }), `right +1, wrong -${penalty} (so blind guessing averages 0), skip 0. With two ? cells, both must be right.`),
         el('li', {}, el('strong', { text: 'No hints. Skip is final. ' }), 'A skipped puzzle never comes back.'),
         el('li', {}, el('strong', { text: 'Pace: ' }), `about ${cfg.paceSec} s per puzzle, so about ${atPace} puzzles in 6:00 for set ${setNo}. Skip rule: several symbols left and no helper cell in sight after about ${cfg.paceSec} s means skip.`),
         el('li', {}, el('strong', { text: 'Afterwards: ' }), 'the coach reviews every puzzle and the whole run. End and review stops the run at any point and shows your score so far; leaving the page saves it the same way. Runs ended early count toward progress and review but not the leaderboard.'),
       ),
+      runModeNote(GAME_ID, setNo, freshMode),
       el('h3', { text: 'Try the sample puzzle (untimed, not scored)' }),
       el('p', { class: 'muted', text: 'This is the exact exam screen: grid, symbols, clock, answer counter and Skip.' }),
       tutorialHud,
@@ -799,7 +808,7 @@ async function renderRun(ctx, setNo) {
 
   // Latin Square runs score in exam points (right +1, wrong -1/(n-1), skip 0), not efficiency.
   function buildRun() {
-    const run = summarizeRun({ id: runId, game: GAME_ID, set: setNo, seed: runSeed, startedAt, endedAt: Date.now(), budgetMs: RUN_MS, attempts: results.map((r) => r.attempt) });
+    const run = summarizeRun({ id: runId, game: GAME_ID, set: setNo, seed: runSeed, startedAt, endedAt: Date.now(), budgetMs: RUN_MS, attempts: results.map((r) => r.attempt), rank });
     run.score = examRunScore(results.map((r) => r.status), cfg.n);
     run.wrong = results.filter((r) => r.status === 'wrong').length;
     run.scoring = 'exam-points';
@@ -815,10 +824,14 @@ async function renderRun(ctx, setNo) {
     tutorialArea = null;
     setExamChrome(true);
     head.hidden = true;
-    runSeed = (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0;
+    const setup = ranked ?? runSetup(GAME_ID, setNo, true);
+    runSeed = setup.seed;
+    rank = setup.rank;
     runId = newId('r');
     startedAt = Date.now();
-    stream = createRunStream({ puzzles: data.puzzles, seed: runSeed, setNo });
+    stream = ranked
+      ? createRunStream({ puzzles: data.puzzles, seed: runSeed, setNo, shuffle: false })
+      : createRunStream({ puzzles: data.puzzles, seed: runSeed, setNo, usePool: false, isSeen: seenFilter(GAME_ID) });
     unguard = guardRun({ onLeave: (exit) => finish(exit), onHide: checkpoint });
     // Registered after the page disposer, so it runs first: a route change mid-run saves it.
     ctx.onDispose(() => {
@@ -848,7 +861,8 @@ async function renderRun(ctx, setNo) {
     if (finished) return;
     area?.destroy();
     const { puzzle, source, index } = stream.next();
-    const log = createAttemptLog({ game: GAME_ID, set: setNo, puzzleId: puzzle.id, mode: 'exam', runId, source, optimal: puzzle.targets.length });
+    if (!ranked) markSeen(GAME_ID, freshKit.keyOf(puzzle));
+    const log = createAttemptLog({ game: GAME_ID, set: setNo, puzzleId: puzzle.id, mode: 'exam', runId, source, optimal: puzzle.targets.length, rank });
     current = { puzzle, source, index, log, done: false };
     area = createPlayArea(puzzle, {
       mode: 'exam',
@@ -899,7 +913,8 @@ async function renderRun(ctx, setNo) {
     const slots = Math.max(PUZZLES_PER_SET, results.length);
     const avg = averageEfficiency(run.score, slots);
     const wasOpen = setNo < SET_CONFIGS.length ? isUnlocked(setNo + 1) : true;
-    const { improved, best } = store.recordRun(GAME_ID, setNo, run.score, slots);
+    // Fresh timed practice counts in history and review but not in the set's best ranked score.
+    const { improved, best } = ranked ? store.recordRun(GAME_ID, setNo, run.score, slots) : { improved: false, best: store.getSet(GAME_ID, setNo).bestScore };
     const nowOpen = setNo < SET_CONFIGS.length ? isUnlocked(setNo + 1) : true;
 
     const puzzlesById = new Map(results.map((r) => [r.puzzle.id, r.puzzle]));
@@ -912,7 +927,7 @@ async function renderRun(ctx, setNo) {
     const runCoach = coachRun(run, results.map((r) => r.attempt), puzzlesById, { paceSec: cfg.paceSec, budgetMs: RUN_MS, history });
     noteRun(GAME_ID, run, results.map((r) => r.attempt), runCoach.perPuzzle, puzzlesById);
     const partial = isPartial(run);
-    const [takeawaysNode, notAttemptedNode] = runLearning({ game: GAME_ID, run, attempts: results.map((r) => r.attempt), habits: runCoach.habits, perPuzzle: runCoach.perPuzzle, pool: data.puzzles, solve: studyWalkthrough, onDispose: ctx.onDispose });
+    const [takeawaysNode, notAttemptedNode] = runLearning({ game: GAME_ID, run, attempts: results.map((r) => r.attempt), habits: runCoach.habits, perPuzzle: runCoach.perPuzzle, pool: ranked ? data.puzzles : [], solve: studyWalkthrough, onDispose: ctx.onDispose });
     const answered = results.filter((r) => r.status === 'solved' || r.status === 'wrong').length;
     const right = results.filter((r) => r.status === 'solved').length;
     const minutes = Math.max(1, run.durationMs) / 60000;
@@ -968,9 +983,9 @@ async function renderRun(ctx, setNo) {
           el('div', { class: 'tile' }, el('span', { class: 'tile-label', text: 'Right' }), el('strong', { text: `${right} of ${answered} answered` })),
           el('div', { class: 'tile' }, el('span', { class: 'tile-label', text: 'Accuracy' }), el('strong', { text: answered ? pct(right / answered) : 'none' })),
           el('div', { class: 'tile' }, el('span', { class: 'tile-label', text: 'Points per minute' }), el('strong', { text: (run.score / minutes).toFixed(2) })),
-          el('div', { class: 'tile' }, el('span', { class: 'tile-label', text: 'Best for this set' }), el('strong', { text: `${round2(best).toFixed(2)}${improved ? ' (new best)' : ''}` })),
+          el('div', { class: 'tile' }, el('span', { class: 'tile-label', text: ranked ? 'Best for this set' : 'Best ranked run' }), el('strong', { text: `${round2(best).toFixed(2)}${improved ? ' (new best)' : ''}` })),
         ),
-        runExtras(GAME_ID, setNo, improved, { partial }),
+        runExtras(GAME_ID, setNo, improved, { partial, ranked: !!ranked }),
         takeawaysNode,
         !wasOpen && nowOpen ? el('p', { class: 'callout callout-ok', text: `Set ${setNo + 1} unlocked. Nice work.` }) : null,
         avg < UNLOCK_THRESHOLD && setNo < SET_CONFIGS.length && !nowOpen
@@ -1062,7 +1077,7 @@ export async function mountLatinSquare(main, args = []) {
     try {
       if (!mode) renderMenu(ctx);
       else if (mode === 'practice') await renderPractice(ctx, Number(a), Number(b) || 1);
-      else if (mode === 'run') await renderRun(ctx, Number(a));
+      else if (mode === 'run') await renderRun(ctx, Number(a), isFreshArg(b));
       else if (mode === 'retry') await renderRetry(ctx);
       else root.append(el('p', { class: 'notice' }, 'Unknown page. ', el('a', { href: '#/latinsquare' }, 'Back to Latin Square')));
     } catch (err) {

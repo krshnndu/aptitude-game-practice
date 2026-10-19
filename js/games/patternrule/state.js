@@ -155,7 +155,7 @@ export function createSession(puzzle, { mode = 'practice' } = {}) {
 const END_EVENT = { correct: 'solve', wrong: 'skip', skipped: 'skip', timeout: 'timeout' };
 const OUTCOME = { correct: 'solved', wrong: 'skipped', skipped: 'skipped', timeout: 'timeout' };
 
-export function createPickLog({ set, puzzleId, mode, runId = null, source = 'pool', optimal, now = () => Date.now() }) {
+export function createPickLog({ set, puzzleId, mode, runId = null, source = 'pool', optimal, rank = null, now = () => Date.now() }) {
   const startedAt = now();
   const events = [];
   let done = null;
@@ -201,6 +201,7 @@ export function createPickLog({ set, puzzleId, mode, runId = null, source = 'poo
         events: evs,
         metrics: computeMetrics(evs, { optimal, moves, outcome }),
       };
+      if (rank === 0 || rank === 1) done.rank = rank;
       return done;
     },
   };

@@ -8,11 +8,15 @@
 import { createRng } from '../../core/rng.js';
 import { generateFresh, freshSeed, puzzleKey } from './gen.js';
 
-export function createRunStream({ puzzles, seed, setNo, makeFresh = generateFresh }) {
+// shuffle: false keeps the shipped order (the ranked run). usePool: false starts with fresh puzzles
+// (fresh timed practice; the pool then only feeds the repeat safety net). isSeen(key): puzzles to
+// skip besides the shipped ones (the local seen-list).
+export function createRunStream({ puzzles, seed, setNo, makeFresh = generateFresh, shuffle = true, usePool = true, isSeen = () => false }) {
   if (!puzzles.length) throw new Error('empty puzzle pool');
   const rng = createRng(seed);
-  const order = rng.shuffle(puzzles);
+  const order = shuffle ? rng.shuffle(puzzles) : puzzles.slice();
   const seen = new Set(puzzles.map(puzzleKey));
+  const poolSize = usePool ? order.length : 0;
   let drawn = 0;
   let freshK = 0;
   let repeats = 0;
@@ -21,13 +25,13 @@ export function createRunStream({ puzzles, seed, setNo, makeFresh = generateFres
     next() {
       let puzzle = null;
       let source;
-      if (drawn < order.length) {
+      if (drawn < poolSize) {
         puzzle = order[drawn];
         source = 'pool';
       } else {
         for (let tries = 0; !puzzle && tries < 8; tries++) {
           const p = makeFresh(setNo, freshSeed(seed, freshK++), { seen: new Set(seen) });
-          if (p && !seen.has(puzzleKey(p))) {
+          if (p && !seen.has(puzzleKey(p)) && !isSeen(puzzleKey(p))) {
             seen.add(puzzleKey(p));
             puzzle = p;
           }
@@ -47,10 +51,14 @@ export function createRunStream({ puzzles, seed, setNo, makeFresh = generateFres
       return drawn;
     },
     get poolSize() {
-      return order.length;
+      return poolSize;
     },
   };
 }
+
+// Practice slots past the shipped 10 and the seen-list use these. No seen option: the puzzle must
+// rebuild from the seed in its id. No variant: the fallback is the shipped puzzle.
+export const freshKit = { keyOf: puzzleKey, make: (setNo, seed) => generateFresh(setNo, seed) };
 
 // Untimed sample puzzle on the pre-run tutorial screen: one blank, two decoys.
 export const TUTORIAL_PUZZLE = {
