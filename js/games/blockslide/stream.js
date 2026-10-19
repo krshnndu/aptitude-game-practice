@@ -111,7 +111,8 @@ export function createRunStream({ puzzles, seed, takeFresh = () => null, shuffle
       seen.add(key);
       return p;
     }
-    for (let p = takeFresh(); p; p = takeFresh()) {
+    let tries = 0;
+    for (let p = takeFresh(); p && tries < 40; p = takeFresh(), tries++) {
       const key = layoutKey(p);
       if (seen.has(key) || isSeen(key)) continue;
       seen.add(key);
