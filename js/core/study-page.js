@@ -12,6 +12,7 @@ import { dvsPanel } from './dvs-ui.js';
 import { ev } from './board.js';
 import { partialBanner, takeawaysPanel, notAttemptedSection, sessionStart, resume } from './endrun-ui.js';
 import { isPartial } from './partial.js';
+import { makerPrompt } from './maker.js';
 import { studyWalkthrough as bsStudy } from '../games/blockslide/play.js';
 import { studyWalkthrough as lsStudy } from '../games/latinsquare/play.js';
 import { studyWalkthrough as gmStudy } from '../games/gridmemory/play.js';
@@ -69,7 +70,15 @@ export async function mountStudy(main, rest) {
   root.append(list);
   try {
     const data = await loadSetData(game, set);
-    list.replaceChildren(...data.puzzles.map((p, i) => lazySolution(game, p, d.add, `${label[0].toUpperCase()}${label.slice(1)} ${i + 1}: show the worked solution`)));
+    const items = data.puzzles.map((p, i) => lazySolution(game, p, d.add, `${label[0].toUpperCase()}${label.slice(1)} ${i + 1}: show the worked solution`));
+    list.replaceChildren(...items);
+    // Done message once the last solution is opened, with at most one governed Termly line under it.
+    const last = items[items.length - 1];
+    last?.addEventListener('toggle', () => {
+      if (!last.open || root.querySelector('.study-done')) return;
+      root.append(el('p', { class: 'study-done', role: 'status', text: `End of set ${set}. You have reached the last ${label}.` }),
+        makerPrompt('review_done', game, 'Going through placements? Termly plans your term') ?? '');
+    });
   } catch (err) {
     list.replaceChildren(el('p', { class: 'notice', text: `Could not load set ${set}: ${err.message}` }));
   }

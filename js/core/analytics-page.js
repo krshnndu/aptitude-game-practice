@@ -12,6 +12,7 @@ import {
 import { pct } from './score.js';
 import { learnStore } from './learn-hooks.js';
 import { loadContext, tierChip, deltaText, table as nodeTable, gameName } from './learn-ui.js';
+import { makerPrompt } from './maker.js';
 
 const SETS = [1, 2, 3, 4, 5];
 const fmtSec = (ms) => (Number.isFinite(ms) ? `${(ms / 1000).toFixed(1)} s` : '');
@@ -24,6 +25,10 @@ export function mountAnalytics(main) {
   const root = el('div', { class: 'analytics' });
   main.append(root);
   const state = { sample: false, set: 'all' };
+  // Decided once per visit so redraws neither re-count it nor bring it back after a close.
+  let termly = recorder.load().runs.length >= 3
+    ? makerPrompt('progress_card', 'analytics', 'Planning your term around prep? Try Termly', { cls: 'maker-nudge maker-card', onDismiss: () => { termly = null; } })
+    : null;
 
   function draw() {
     root.replaceChildren();
@@ -193,6 +198,7 @@ export function mountAnalytics(main) {
     );
 
     if (!state.sample) root.append(backupSection(recorder, store, draw));
+    if (!state.sample && termly) root.append(termly);
   }
 
   draw();

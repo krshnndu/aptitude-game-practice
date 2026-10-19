@@ -10,6 +10,7 @@ import { SHEETS, ADAPTERS, timeFor } from './learn-registry.js';
 import { fixIds } from './learn-util.js';
 import { finalizeRun, isPartial, isLeave, notAttempted, partialStats, takeaways, createResumeStore } from './partial.js';
 import { makerNudgeDue } from './ux.js';
+import { makerPrompt } from './maker.js';
 
 let resumeStore = null;
 export function resume() {
@@ -164,16 +165,9 @@ export function runLearning({ game, run, attempts, habits, perPuzzle, pool, solv
 
 export const studyLink = (game, set, text = 'Study mode') => el('a', { class: 'btn btn-quiet', href: `#/study/${game}/${set}` }, text);
 
-// Result screen Termly line: from the second result on this browser, once per tab session, never a modal.
-// Clicks reach telemetry through the outbound link_click listener in board.js.
-export const TERMLY_NUDGE_URL = 'https://termly-iimr.vercel.app/welcome?utm_source=cogprep&utm_medium=referral&utm_campaign=result_nudge';
+// Result screen Termly line: from the second result on this browser, through the maker.js governor.
 export function makerNudge(game) {
   let due = false;
-  try { due = makerNudgeDue(localStorage, sessionStorage); } catch { /* storage blocked */ }
-  if (!due) return null;
-  ev('feat', game, { name: 'maker_nudge_show' });
-  const node = el('p', { class: 'maker-nudge' },
-    el('a', { href: TERMLY_NUDGE_URL, target: '_blank', rel: 'noopener' }, 'Prepping for placements? Plan your term with Termly'),
-    el('button', { type: 'button', class: 'maker-nudge-close', 'aria-label': 'Hide this', onclick: () => { ev('feat', game, { name: 'maker_nudge_dismiss' }); node.remove(); } }, '\u00d7'));
-  return node;
+  try { due = makerNudgeDue(localStorage); } catch { /* storage blocked */ }
+  return due ? makerPrompt('result_nudge', game, 'Prepping for placements? Plan your term with Termly') : null;
 }

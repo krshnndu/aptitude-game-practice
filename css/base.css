@@ -641,6 +641,10 @@ div.piece { cursor: default; }
 .maker-nudge { display: flex; align-items: center; gap: 8px; margin: 16px 0 0; font-size: 0.9rem; }
 .maker-nudge a { display: inline-flex; align-items: center; min-height: 44px; }
 .maker-nudge-close { min-width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 1.2rem; cursor: pointer; }
+.maker-card { justify-content: space-between; padding: 4px 4px 4px 14px; border: 1px solid var(--line); border-radius: 8px; max-width: 520px; }
+.maker-about { padding: 4px 14px; border: 1px solid var(--line); border-radius: 8px; max-width: 520px; }
+.maker-links { margin: 0 0 12px; padding-left: 18px; }
+.study-done { margin: 20px 0 0; font-weight: 600; }
 
 /* ------------------------------------------------ onboarding and plain-language UX */
 

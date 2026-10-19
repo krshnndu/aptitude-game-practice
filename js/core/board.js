@@ -4,6 +4,7 @@ import { el } from './dom.js';
 import { onRunSaved, onAttemptSaved } from './recorder.js';
 import { dvsTelemetry } from './dvs.js';
 import { isPartial, isUploadable } from './partial.js';
+import { termlyLine } from './maker.js';
 
 const K_CID = 'cogprep.cid.v1', K_NICK = 'cogprep.nick.v1', K_Q = 'cogprep.queue.v1', K_CMP = 'cogprep.compare.v1';
 const ls = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* ignore */ } } };
@@ -121,6 +122,7 @@ export function mountBoard(main) {
       el('div', {}, nickIn, ' ', save, ' ', nickMsg),
       el('label', {}, cmp, ' Show "you vs others" after each run'),
       el('p', { class: 'muted' }, 'Titles by percentile: ' + TITLES.slice().reverse().map(([m, t]) => `${t} (${m}%+)`).join(', '))),
+    termlyLine('board_foot', 'By the maker: ', 'Termly', ', a term planner'),
   );
   drawTabs(); load();
   return () => {};
@@ -191,7 +193,7 @@ export function startTelemetry() {
   });
   onRunSaved((r) => { activeRun = null; lastEnd = Date.now(); ev('run_end', r.game, { game: r.game, set: r.set, mode: 'exam', rid: String(r.id).slice(0, 20), n: Math.round(r.attempted || 0), ms: Math.round(r.durationMs || 0), ...rankField(r), ...(isPartial(r) ? { part: 1, exit: r.exit || 'early' } : {}) }); });
   addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && !leftPage) { leftPage = true; ev('leave', curPage, { dur: Math.min(Date.now() - pageT0, 14400000) }); } else if (document.visibilityState === 'visible' && leftPage) { leftPage = false; pageT0 = Date.now(); } });
-  document.addEventListener('click', (e) => { const a = e.target && e.target.closest && e.target.closest('a[href^="http"]'); if (a) { try { const u = new URL(a.href); if (u.hostname !== location.hostname) ev('link_click', curPage, { tgt: u.hostname.slice(0, 40) }); } catch { /* ignore */ } } }, true);
+  document.addEventListener('click', (e) => { const a = e.target && e.target.closest && e.target.closest('a[href^="http"]'); if (a) { try { const u = new URL(a.href); if (u.hostname !== location.hostname) ev('link_click', curPage, { tgt: u.hostname.slice(0, 40), ...(a.dataset.via ? { via: a.dataset.via } : {}) }); } catch { /* ignore */ } } }, true);
   const errSeen = new Set(); const errOk = (k) => { if (errSeen.has(k) || errSeen.size >= 8) return false; errSeen.add(k); return true; };
   addEventListener('error', (e) => { if (!errOk(String(e.message) + (e.lineno || 0))) return; ev('js_error', curPage, { name: String(e.message || 'error').replace(/[^A-Za-z0-9 ._]/g, '').slice(0, 24), src: String(e.filename || '').split('/').pop().slice(0, 40), line: e.lineno || 0 }); });
   addEventListener('unhandledrejection', () => { if (errOk('rej')) ev('js_error', curPage, { name: 'unhandledrejection' }); });

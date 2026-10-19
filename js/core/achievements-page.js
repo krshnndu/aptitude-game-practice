@@ -6,6 +6,7 @@ import { loadContext, achievementsFor, GAMES, FORMULA, pctText, fmtDate, deltaTe
 import { progressBar } from './learn-charts.js';
 import { MIN_N } from './skill.js';
 import { ev } from './board.js';
+import { termlyLine } from './maker.js';
 
 const GROUP_ORDER = ['Learning', 'Mastery', 'Speed and accuracy', 'Reflection', 'Consistency'];
 
@@ -55,6 +56,7 @@ export function mountAchievements(main) {
       el('ul', { class: 'ach-grid', role: 'list' }, items.map(achCard)),
     );
   }
+  if (unlockedCount) root.append(termlyLine('achievement', 'Nice progress. Also by the maker: ', 'Termly', ', a term planner'));
   return () => {};
 }
 

@@ -1,7 +1,7 @@
 // Onboarding logic: game status chips, recommended set and puzzle, Termly nudge rule, mode links, one-time prefs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gameStatus, recommendedSet, nextPractice, modeFromHref, makerNudgeDue, RUNS_KEY, NUDGE_KEY, createUxPrefs, setPassed, UX_KEY } from '../js/core/ux.js';
+import { gameStatus, recommendedSet, nextPractice, modeFromHref, makerNudgeDue, RUNS_KEY, createUxPrefs, setPassed, UX_KEY } from '../js/core/ux.js';
 import { memoryStorage } from '../js/core/store.js';
 
 const idOf = (s, k) => `bs${s}-${String(k).padStart(2, '0')}`;
@@ -52,18 +52,15 @@ test('modeFromHref maps start links to modes', () => {
   assert.equal(modeFromHref(null), null);
 });
 
-test('makerNudgeDue: never on the first result, then once per session', () => {
+test('makerNudgeDue: never on the first result, eligible from the second', () => {
   const local = memoryStorage();
-  const tab1 = memoryStorage();
-  assert.equal(makerNudgeDue(local, tab1), false);
+  assert.equal(makerNudgeDue(local), false);
   assert.equal(local.getItem(RUNS_KEY), '1');
-  assert.equal(makerNudgeDue(local, tab1), true);
-  assert.equal(tab1.getItem(NUDGE_KEY), '1');
-  assert.equal(makerNudgeDue(local, tab1), false);
-  assert.equal(makerNudgeDue(local, memoryStorage()), true);
-  assert.equal(local.getItem(RUNS_KEY), '4');
+  assert.equal(makerNudgeDue(local), true);
+  assert.equal(makerNudgeDue(local), true);
+  assert.equal(local.getItem(RUNS_KEY), '3');
   const broken = { getItem: () => { throw new Error('blocked'); }, setItem: () => {} };
-  assert.equal(makerNudgeDue(broken, tab1), false);
+  assert.equal(makerNudgeDue(broken), false);
 });
 
 test('ux prefs: welcome and tips are remembered, skip all and reset', () => {

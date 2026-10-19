@@ -26,12 +26,11 @@ import { resumeActions } from './partial.js';
 import { createStore } from './store.js';
 import { gameStatus, STATUS_LABEL } from './ux.js';
 import { uxPrefs, coachMark } from './start-ui.js';
+import { termlyLine, termlyLink, watchTermlyClicks } from './maker.js';
 
 const MOUNTS = { blockslide: mountBlockSlide, latinsquare: mountLatinSquare, gridmemory: mountGridMemory, operatorswitch: mountOperatorSwitch, digitequation: mountDigitEquation, patternrule: mountPatternRule };
 
 export { GAMES };
-
-const TERMLY_HOME_URL = 'https://termly-iimr.vercel.app/welcome?utm_source=cogprep&utm_medium=referral&utm_campaign=maker_links';
 
 function safeNode(fn) {
   try {
@@ -95,7 +94,7 @@ function renderHome(main) {
           : el('div', { class: 'game-card is-soon' }, inner));
       }),
     ),
-    el('p', { class: 'muted small maker-line' }, 'Also by the maker: ', el('a', { href: TERMLY_HOME_URL, target: '_blank', rel: 'noopener' }, 'Termly'), ', a term planner'),
+    termlyLine('landing_line', 'Also by the maker: ', 'Termly', ', a term planner'),
   ].filter(Boolean));
 }
 
@@ -125,10 +124,13 @@ function renderAbout(main) {
       el('p', {}, 'Hid a game tip too soon? Bring them all back.'),
       el('p', {}, tipsBtn),
       el('h2', { text: 'Made by' }),
-      el('p', {}, 'Krishnendu Biswas, an IIM Ranchi student. ',
-        el('a', { href: 'https://krishnendu.me/?utm_source=cogprep&utm_medium=referral&utm_campaign=maker_links', target: '_blank', rel: 'noopener' }, 'krishnendu.me'), ', ',
-        el('a', { href: 'https://www.linkedin.com/in/krshnndu/', target: '_blank', rel: 'noopener' }, 'LinkedIn'), ', ',
-        el('a', { href: 'https://github.com/krshnndu', target: '_blank', rel: 'noopener' }, 'GitHub'), '.'),
+      el('div', { class: 'maker-about' },
+        el('p', {}, 'Krishnendu Biswas, an IIM Ranchi student.'),
+        el('ul', { class: 'maker-links' },
+          el('li', {}, termlyLink('about_card', 'Termly'), ': a free term planner for students'),
+          el('li', {}, el('a', { href: 'https://krishnendu.me/?utm_source=cogprep&utm_medium=referral&utm_campaign=about_card', target: '_blank', rel: 'noopener' }, 'krishnendu.me'), ': portfolio'),
+          el('li', {}, el('a', { href: 'https://www.linkedin.com/in/krshnndu/', target: '_blank', rel: 'noopener' }, 'LinkedIn')),
+          el('li', {}, el('a', { href: 'https://github.com/krshnndu', target: '_blank', rel: 'noopener' }, 'GitHub')))),
       el('h2', { text: 'No affiliation' }),
       el('p', {}, 'This site is not affiliated with, endorsed by, sponsored by, or connected to Aon, Capgemini, or any employer, recruiter or assessment provider. Any product or company names mentioned are trademarks of their respective owners and are used only to describe the kind of assessment this site helps you practise for.'),
       el('h2', { text: 'Original work' }),
@@ -136,7 +138,7 @@ function renderAbout(main) {
       el('h2', { text: 'No guarantee' }),
       el('p', {}, 'Practice scores are for self-study only and do not predict or represent results in any real assessment.'),
       el('h2', { text: 'Privacy' }),
-      el('p', {}, 'There are no accounts, cookies or trackers. Your move log and progress are saved in your browser (localStorage). When a timed test reaches the end of its clock, its score summary (game, set, score, puzzles solved, duration) is uploaded with a random ID stored in your browser, plus a nickname if you chose one, to power the leaderboard. Runs you end early, or leave by changing page or closing the tab, are saved only in your browser and never uploaded or ranked. Anonymous usage is also recorded to improve the site: pages viewed, time on page, browser and operating system, screen size, language, broad timezone region, device class, referring site, which games and sets you open, per-puzzle results (solved, skipped, hint used, time taken, and short did vs should codes: your answer and the correct answer as game codes, the step where you first diverged and the time to it), learning page use (achievements viewed or unlocked, reports viewed, review library opened and retries completed), where runs are abandoned, whether a run ended early and how (button, navigation or page close), use of the End and review button, the resume row and study mode, onboarding choices (home start button, Practice, Timed test or Study mode chosen, tips dismissed or turned back on, the result screen Termly note shown or hidden), outbound link clicks, and page load speed or script errors. All of it is tied only to a random ID stored in your browser. No IP address, name, email, location, keystrokes, move log or note text is stored. The learning layer (review notebook, your notes, achievements, report snapshots, the did vs should record kept with each attempt, runs ended early, the last unfinished run or puzzle behind the resume row, and which tips you dismissed) stays in your browser and is never uploaded. You can export, import or clear the history on the analytics page, or clear everything with your browser settings.'),
+      el('p', {}, 'There are no accounts, cookies or trackers. Your move log and progress are saved in your browser (localStorage). When a timed test reaches the end of its clock, its score summary (game, set, score, puzzles solved, duration) is uploaded with a random ID stored in your browser, plus a nickname if you chose one, to power the leaderboard. Runs you end early, or leave by changing page or closing the tab, are saved only in your browser and never uploaded or ranked. Anonymous usage is also recorded to improve the site: pages viewed, time on page, browser and operating system, screen size, language, broad timezone region, device class, referring site, which games and sets you open, per-puzzle results (solved, skipped, hint used, time taken, and short did vs should codes: your answer and the correct answer as game codes, the step where you first diverged and the time to it), learning page use (achievements viewed or unlocked, reports viewed, review library opened and retries completed), where runs are abandoned, whether a run ended early and how (button, navigation or page close), use of the End and review button, the resume row and study mode, onboarding choices (home start button, Practice, Timed test or Study mode chosen, tips dismissed or turned back on, Termly notes shown or hidden and which page showed them), outbound link clicks, and page load speed or script errors. All of it is tied only to a random ID stored in your browser. No IP address, name, email, location, keystrokes, move log or note text is stored. The learning layer (review notebook, your notes, achievements, report snapshots, the did vs should record kept with each attempt, runs ended early, the last unfinished run or puzzle behind the resume row, and which tips you dismissed) stays in your browser and is never uploaded. You can export, import or clear the history on the analytics page, or clear everything with your browser settings.'),
     ),
   );
 }
@@ -243,6 +245,7 @@ if (typeof window !== 'undefined') {
   initTheme();
   window.addEventListener('hashchange', route);
   startBoard();
+  watchTermlyClicks();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', route);
   else route();
 }

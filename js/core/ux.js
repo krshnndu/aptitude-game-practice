@@ -53,17 +53,14 @@ export function modeFromHref(href) {
   return null;
 }
 
-// Result screen Termly nudge: counts results shown on this browser and allows the nudge once per tab
-// session, from the second result onward. local, session: Storage-like. Returns true to show it.
+// Result screen Termly nudge: counts results shown on this browser; eligible from the second result on.
+// The per session and weekly caps live in maker.js. local: Storage-like. Returns true when eligible.
 export const RUNS_KEY = 'cogprep.runs.v1';
-export const NUDGE_KEY = 'cogprep.makernudge.v1';
-export function makerNudgeDue(local, session) {
+export function makerNudgeDue(local) {
   try {
     const n = (Number(local.getItem(RUNS_KEY)) || 0) + 1;
     local.setItem(RUNS_KEY, String(n));
-    if (n < 2 || session.getItem(NUDGE_KEY)) return false;
-    session.setItem(NUDGE_KEY, '1');
-    return true;
+    return n >= 2;
   } catch {
     return false;
   }

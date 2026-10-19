@@ -3,6 +3,7 @@
 import { el } from './dom.js';
 import { base, cid } from './board.js';
 import { lineChart, barChart } from './charts.js';
+import { termlyFunnel } from './maker.js';
 
 const K_ADMIN_TOKEN = 'cogprep.admin_token';
 const K_SELF = 'cogprep.self.v1';
@@ -225,6 +226,22 @@ export function mountAdmin(main) {
         : el('p', { class: 'muted small', text: 'No data' })
     );
 
+    // Termly funnel: per placement when /stats has a termly block, else the site wide totals it already has.
+    const termlyRows = termlyFunnel(d);
+    const feats = d.features || {};
+    const termlyCard = el('div', { class: 'card', style: 'padding: 20px; margin-bottom: 24px;' },
+      el('h3', { style: 'margin-top: 0;', text: 'Termly funnel' }),
+      termlyRows
+        ? el('table', { class: 'results' },
+            el('thead', {}, el('tr', {}, el('th', { text: 'Placement' }), el('th', { text: 'Shown' }), el('th', { text: 'Clicks' }))),
+            el('tbody', {}, ...termlyRows.map((r) => el('tr', {}, el('td', { text: r.placement }), el('td', { text: String(r.shown) }), el('td', { text: String(r.clicks) })))))
+        : el('div', {},
+            el('p', { class: 'muted small', text: 'Per placement counts need a server update. Totals for now:' }),
+            el('ul', { style: 'padding-left: 18px; margin: 0;' },
+              el('li', { text: `Prompts shown: ${feats.maker_show ?? 0}` }),
+              el('li', { text: `Prompts dismissed: ${feats.maker_dismiss ?? 0}` }),
+              el('li', { text: `Clicks to Termly (all placements): ${d.linkClicks?.['termly-iimr.vercel.app'] ?? 0}` }))));
+
     // ---- charts ----
     const fillDays = () => {
       const out = []; const dd = d.daily || {};
@@ -315,6 +332,7 @@ export function mountAdmin(main) {
       frictionCard,
       audienceCard,
       sourcesCard,
+      termlyCard,
       retCard,
       errCard,
       ...(hotspotCard ? [hotspotCard] : []),

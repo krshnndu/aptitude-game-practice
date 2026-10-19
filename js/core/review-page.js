@@ -11,6 +11,7 @@ import { mixedQueue, dueItems, isMastered, DAILY_CAP, DAY_MS, endOfDay } from '.
 import { mountReplay } from './replay-page.js';
 import { mountRunReview } from './study-page.js';
 import { ev } from './board.js';
+import { makerPrompt } from './maker.js';
 
 export function mountReview(main, rest, query) {
   const [game, attemptId] = rest;
@@ -119,7 +120,8 @@ function mountToday(main) {
       el('p', { class: 'lede', text: `Due puzzles from every game, interleaved (switching games helps you tell the problem types apart). Oldest due first, at most ${DAILY_CAP} a day.` })),
     el('p', { role: 'status' }, totalDue
       ? `${queue.length} shown of ${totalDue} due.`
-      : 'Nothing is due today. New entries arrive when you fail or play a puzzle inefficiently.'),
+      : all.length ? 'All done. Nothing is due today.' : 'Nothing is due today. New entries arrive when you fail or play a puzzle inefficiently.'),
+    !totalDue && all.length ? makerPrompt('review_done', 'review', 'Going through placements? Termly plans your term') ?? '' : '',
     queue.length
       ? el('ol', { class: 'queue', role: 'list' }, queue.map((it) => el('li', { class: 'queue-item' },
         el('span', { class: 'badge badge-soon', text: gameName(it.game) }), ' ',
