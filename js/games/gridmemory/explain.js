@@ -7,13 +7,18 @@
 //     parity shortcut),
 //   - memory tips picked from what happened (rehearse while judging, chunk the path, anchors).
 
-import { cellRC, cellLabel, analyzeRecall, arithValue, mirrorMismatches } from './state.js';
+import { cellRC, cellLabel, analyzeRecall, arithValue, mirrorMismatches, isCircles, circleZone } from './state.js';
 import { pct } from '../../core/score.js';
 
 const TIMES = String.fromCharCode(0xd7);
 export const OP_TEXT = { '+': '+', '-': '-', '*': TIMES };
 
+// n: the grid size, or the puzzle (grid or circles); circles are named by their third of the area.
+const gridSize = (n) => (typeof n === 'object' && n !== null ? n.n : n);
+
 export function landmark(n, cell) {
+  if (isCircles(n)) return circleZone(n, cell);
+  n = gridSize(n);
   const { r, c } = cellRC(n, cell);
   const top = r === 0;
   const bottom = r === n - 1;
@@ -37,8 +42,24 @@ function dirWord(dr, dc) {
   return v && h ? `${v}-${h}` : v || h;
 }
 
+// Direction from circle a to circle b in words ("up and to the left"), and a rough distance.
+function circleStep(p, a, b) {
+  const [x0, y0] = p.circles[a];
+  const [x1, y1] = p.circles[b];
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const ang = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI);
+  // Within 25 degrees of an axis counts as straight across or straight up or down.
+  const h = ang < 65 || ang > 115 ? (dx < 0 ? 'left' : 'right') : '';
+  const v = ang > 25 && ang < 155 ? (dy < 0 ? 'up' : 'down') : '';
+  const far = Math.hypot(dx, dy) > 0.5 ? 'far ' : '';
+  return `${far}${v && h ? `${v}-${h}` : v || h}`;
+}
+
 // One step of the path from cell a to cell b.
 export function stepText(n, a, b) {
+  if (isCircles(n)) return circleStep(n, a, b);
+  n = gridSize(n);
   const p = cellRC(n, a);
   const q = cellRC(n, b);
   const dr = q.r - p.r;
@@ -52,6 +73,9 @@ export function stepText(n, a, b) {
 
 // Straight runs: consecutive steps with the same direction and length form one chunk.
 export function pathChunks(n, seq) {
+  // Circles sit off any grid: there are no repeated steps to group.
+  if (isCircles(n)) return seq.map((_, i) => ({ from: i, to: i, kind: 'single' }));
+  n = gridSize(n);
   if (seq.length < 2) return [{ from: 0, to: seq.length - 1, kind: 'single' }];
   const delta = (i) => {
     const p = cellRC(n, seq[i]);
@@ -73,6 +97,8 @@ export function pathChunks(n, seq) {
 // Spoken version of the path, for example
 //   "top-left corner (1,1), then 2 right to the top-right corner (1,3), then ..."
 export function describePath(n, seq) {
+  if (isCircles(n)) return describeCirclePath(n, seq);
+  n = gridSize(n);
   const steps = seq.map((cell, i) => {
     const where = `${landmark(n, cell)} ${cellLabel(n, cell)}`;
     if (i === 0) return { i, cell, text: `Start: ${where}.` };
@@ -90,6 +116,23 @@ export function describePath(n, seq) {
   if (seq.length >= 3 && (rows.size <= 2 || cols.size <= 2)) {
     summary.push(`All cells sit in ${rows.size <= 2 ? `${rows.size} row${rows.size === 1 ? '' : 's'}` : `${cols.size} column${cols.size === 1 ? '' : 's'}`}: picture it as one band and remember only the order across it.`);
   }
+  return { steps, summary };
+}
+
+// Circles: "Start: circle 3 (top left)", then "down-right to circle 5 (centre)".
+function describeCirclePath(p, seq) {
+  const where = (i) => `${cellLabel(p, i)} (${circleZone(p, i)})`;
+  const steps = seq.map((cell, i) => ({
+    i,
+    cell,
+    text: i === 0 ? `Start: ${where(cell)}.` : `${circleStep(p, seq[i - 1], cell)} to ${where(cell)}.`,
+  }));
+  const summary = [];
+  const zones = seq.map((cell) => circleZone(p, cell).split(' ')[0]);
+  const tops = zones.filter((z) => z === 'top').length;
+  const bottoms = zones.filter((z) => z === 'bottom').length;
+  if (seq.length >= 3 && (tops === seq.length || bottoms === seq.length)) summary.push(`All ${seq.length} circles sit in the ${tops ? 'top' : 'bottom'} third: remember only the order across it.`);
+  if (seq.length >= 3) summary.push('Trace it as one shape: say the moves ("down-right, far left, up") rather than holding each circle on its own.');
   return { steps, summary };
 }
 
@@ -113,12 +156,13 @@ export function divergenceText(n, analysis) {
   if (p.status === 'missing') return `You stopped after ${k} of ${analysis.total}: position ${k + 1} was ${want}.`;
   if (p.status === 'hint') return `Position ${k + 1} needed a hint: it was ${want}.`;
   const got = cellLabel(n, p.got);
+  const unit = isCircles(n) ? 'circle' : 'cell';
   if (p.status === 'order') {
     const swapped = analysis.positions[p.belongsAt]?.got === p.expected;
-    return `You diverged at position ${k + 1}: you chose ${got}, which is cell ${p.belongsAt + 1} of the sequence; position ${k + 1} was ${want}.` +
+    return `You diverged at position ${k + 1}: you chose ${got}, which is ${unit} ${p.belongsAt + 1} of the sequence; position ${k + 1} was ${want}.` +
       (swapped ? ` Positions ${k + 1} and ${p.belongsAt + 1} were swapped.` : '');
   }
-  return `You diverged at position ${k + 1}: you chose ${got}, which was never lit; the cell was ${want}.`;
+  return `You diverged at position ${k + 1}: you chose ${got}, which was never lit; the ${unit} was ${want}.`;
 }
 
 // ---------------------------------------------------------------- side questions
@@ -189,7 +233,7 @@ export const STRATEGY = [
 export function tipsFor(puzzle, result) {
   const tips = [];
   const rec = result.recall;
-  const { summary } = describePath(puzzle.n, puzzle.sequence);
+  const { summary } = describePath(puzzle, puzzle.sequence);
   tips.push(...summary);
   if (rec.order > 0) tips.push('You had the right cells but lost their order: link each cell to the next as a movement ("then 2 down"), not as a set of places.');
   if (rec.wrong > 0) tips.push('Some taps were on cells that never lit: name the landmark of each cell the moment it lights ("left edge"), before the side question appears.');
@@ -211,14 +255,14 @@ export function resultSummary(result) {
 export function explainTrial(puzzle, result, answers = []) {
   const analysis = result.recall ?? analyzeRecall(puzzle.sequence, []);
   return {
-    path: describePath(puzzle.n, puzzle.sequence),
+    path: describePath(puzzle, puzzle.sequence),
     positions: analysis.positions.map((p) => ({
       ...p,
-      expectedLabel: cellLabel(puzzle.n, p.expected),
-      gotLabel: p.got === null ? 'none' : cellLabel(puzzle.n, p.got),
+      expectedLabel: cellLabel(puzzle, p.expected),
+      gotLabel: p.got === null ? 'none' : cellLabel(puzzle, p.got),
       text: statusText(p.status),
     })),
-    divergence: divergenceText(puzzle.n, analysis),
+    divergence: divergenceText(puzzle, analysis),
     side: sideRows(puzzle, answers),
     tips: tipsFor(puzzle, result),
     summary: resultSummary(result),

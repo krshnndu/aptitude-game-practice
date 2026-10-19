@@ -162,3 +162,21 @@
   .gm-grid { transition: none; }
   .gm-pips li.is-now { transform: none; }
 }
+
+/* ---------------- circles variant: free positions, no grid */
+
+.gm-variant { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 12px; margin: 0 0 12px; }
+.gm-variant legend { font-weight: 700; padding: 0 4px; }
+.gm-variant-option { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; cursor: pointer; }
+.gm-variant-option input { width: 20px; height: 20px; }
+.gm-grid.gm-circles { display: block; position: relative; padding: 0; }
+/* At least 44 px across; centres are generated at least 0.18 of the area apart and 0.08 from the edges. */
+.gm-circles .gm-dot {
+  position: absolute; width: max(44px, 13%); height: auto; aspect-ratio: 1;
+  transform: translate(-50%, -50%); border-radius: 50%;
+  touch-action: manipulation;
+}
+.gm-circles .gm-dot .gm-mark { width: 100%; height: 100%; border-radius: 50%; }
+.gm-circles .gm-dot.is-lit .gm-mark { box-shadow: 0 0 0 4px var(--fg); }
+.gm-circles .gm-dot.is-entered .gm-mark { border-radius: 50%; }
+.gm-ov-spot { fill: none; stroke: var(--line); stroke-width: 0.5; }

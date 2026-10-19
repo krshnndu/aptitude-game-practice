@@ -6,12 +6,14 @@ import { el } from '../../core/dom.js';
 import { gameStart, setActions, setListHead, lockedHint, lockedPage, progressLine, unlockToggle, trackModes, timedNudge, runModeNote, practiceTitle } from '../../core/start-ui.js';
 import { practicePuzzle, runSetup, seenFilter, markSeen, isFreshArg, aliveCheck, notePlayed } from '../../core/fresh-play.js';
 import { runExtras } from '../../core/board.js';
+import { recommendedSet } from '../../core/ux.js';
 import { Countdown, formatClock } from '../../core/timer.js';
 import { createStore } from '../../core/store.js';
 import { createRecorder, summarizeRun, newId } from '../../core/recorder.js';
 import { averageEfficiency, pct, round2, UNLOCK_THRESHOLD } from '../../core/score.js';
-import { createTrial, cellLabel, ANSWERS, POINTS } from './state.js';
+import { createTrial, cellLabel, ANSWERS, POINTS, isCircles, spotCount, circleZone } from './state.js';
 import { SET_CONFIGS, PUZZLES_PER_SET, GAP_MS, trialSeconds, puzzleId } from './gen.js';
+import { CIRCLE_CONFIGS, isCircleSet, circlePuzzleId, circleTrialSeconds, levelOf, circleSetOf } from './circles.js';
 import { createStaircase, createRunSource, tutorialTrial, trialKey, freshKit } from './stream.js';
 import { explainTrial, questionText, answerWord, OP_TEXT, STRATEGY, landmark } from './explain.js';
 import { coachTrial, coachRun } from './coach.js';
@@ -29,6 +31,31 @@ const KIND_NAMES = { sym: 'mirror symmetry (yes or no)', parity: 'even or odd su
 const store = createStore();
 const recorder = createRecorder();
 const setCache = new Map();
+
+// Layout variant on the start screen: 'circles' (free positions, like the real test; the default)
+// or 'grid'. Circle sets are stored as sets 6..10 (see circles.js), so the two never mix.
+const VARIANT_KEY = 'cogprep.gm.variant.v1';
+const VARIANTS = [['circles', 'Circles'], ['grid', 'Grid']];
+function getVariant() {
+  try {
+    return localStorage.getItem(VARIANT_KEY) === 'grid' ? 'grid' : 'circles';
+  } catch {
+    return 'circles';
+  }
+}
+function setVariant(v) {
+  try {
+    localStorage.setItem(VARIANT_KEY, v);
+  } catch {
+    // keep the default
+  }
+}
+const ALL_CONFIGS = [...SET_CONFIGS, ...CIRCLE_CONFIGS];
+const cfgFor = (setNo) => ALL_CONFIGS.find((c) => c.set === setNo) ?? null;
+const idOf = (setNo, k) => (isCircleSet(setNo) ? circlePuzzleId(setNo, k) : puzzleId(setNo, k));
+const setTitle = (cfg) => (isCircleSet(cfg.set) ? `Circles ${cfg.level}: ${cfg.name}` : `Set ${cfg.set}: ${cfg.name}`);
+// The next set up in the same variant (null after the last).
+const nextSetOf = (setNo) => (cfgFor(setNo + 1) && isCircleSet(setNo + 1) === isCircleSet(setNo) ? setNo + 1 : null);
 // Practice option, kept for the session: side questions without a time limit.
 let relaxedPractice = false;
 
@@ -39,7 +66,8 @@ function ensureCss() {
 
 function loadSet(setNo) {
   if (!setCache.has(setNo)) {
-    const url = new URL(`../../../data/sets/gridmemory/set${setNo}.json`, import.meta.url);
+    const file = isCircleSet(setNo) ? `circles-set${levelOf(setNo)}.json` : `set${setNo}.json`;
+    const url = new URL(`../../../data/sets/gridmemory/${file}`, import.meta.url);
     setCache.set(
       setNo,
       fetch(url).then((r) => {
@@ -55,6 +83,8 @@ function loadSet(setNo) {
 }
 
 function isUnlocked(setNo) {
+  // The first circles set is always open, like grid set 1; later ones follow the circles before them.
+  if (setNo === CIRCLE_CONFIGS[0].set) return true;
   return store.isUnlocked(GAME_ID, setNo, PUZZLES_PER_SET);
 }
 
@@ -109,8 +139,14 @@ function createTrialArea(puzzle, opts) {
   const exam = opts.mode === 'exam';
   const relaxed = !!opts.relaxed && !exam;
   const trial = createTrial(puzzle, { mode: exam ? 'exam' : 'practice' });
+  const circles = isCircles(puzzle);
   const n = puzzle.n;
+  const spots = spotCount(puzzle);
   const L = puzzle.length;
+  const word = circles ? 'circle' : 'cell';
+  // "cell (1,2)" or "circle 4"; spoken names add the landmark.
+  const spotName = (cell) => (circles ? `circle ${cell + 1}` : `cell ${cellLabel(n, cell)}`);
+  const spotAria = (cell) => (circles ? `Circle ${cell + 1}, ${circleZone(puzzle, cell)}` : `Cell ${cellLabel(n, cell)}`);
   const timers = new Set();
   let windowTick = null;
   let destroyed = false;
@@ -134,15 +170,18 @@ function createTrialArea(puzzle, opts) {
   const message = el('p', { class: 'play-message' });
   const pips = el('ol', { class: 'gm-pips', 'aria-hidden': 'true' }, Array.from({ length: L }, () => el('li', {})));
 
-  const grid = el('div', { class: 'gm-grid', style: { '--n': n }, role: 'group', 'aria-label': `Grid, ${n} by ${n}` });
+  const grid = circles
+    ? el('div', { class: 'gm-grid gm-circles', role: 'group', 'aria-label': `Play area with ${spots} circles` })
+    : el('div', { class: 'gm-grid', style: { '--n': n }, role: 'group', 'aria-label': `Grid, ${n} by ${n}` });
   const cells = [];
-  for (let cell = 0; cell < n * n; cell++) {
+  for (let cell = 0; cell < spots; cell++) {
     const b = el('button', {
       type: 'button',
-      class: 'gm-cell',
+      class: circles ? 'gm-cell gm-dot' : 'gm-cell',
+      style: circles ? { left: `${puzzle.circles[cell][0] * 100}%`, top: `${puzzle.circles[cell][1] * 100}%` } : null,
       'data-cell': cell,
       tabindex: cell === 0 ? '0' : '-1',
-      'aria-label': `Cell ${cellLabel(n, cell)}`,
+      'aria-label': spotAria(cell),
       onclick: () => doTap(cell),
     }, el('span', { class: 'gm-mark', 'aria-hidden': 'true' }));
     cells.push(b);
@@ -152,7 +191,7 @@ function createTrialArea(puzzle, opts) {
   const sideCard = el('div', { class: 'gm-side', hidden: true });
   const startBtn = el('button', { type: 'button', class: 'btn btn-primary btn-big', onclick: () => begin() }, 'Start trial');
   const readyCard = el('div', { class: 'gm-ready' }, startBtn,
-    el('p', { class: 'muted small', text: `${L} cells will light one at a time. Answer the question after each one, then tap the cells in order.` }));
+    el('p', { class: 'muted small', text: `${L} ${word}s will light one at a time. Answer the question after each one, then tap the ${word}s in order.` }));
   const stage = el('div', { class: 'gm-stage', tabindex: '-1' }, grid, sideCard, readyCard);
 
   const undoBtn = exam ? null : el('button', { type: 'button', class: 'btn', onclick: () => doUndo() }, 'Undo');
@@ -175,9 +214,11 @@ function createTrialArea(puzzle, opts) {
           el('summary', {}, 'Controls'),
           el('ul', {},
             el('li', {}, 'Side questions: click an answer, or press Y or N (shapes), E or O (sums), or the left and right arrows.'),
-            el('li', {}, 'Recall: tap the cells in the order they lit. Arrow keys move between cells, Enter or Space enters one.'),
+            el('li', {}, circles
+              ? 'Recall: tap the circles in the order they lit. Arrow keys step through the circles (top to bottom), Enter or Space enters one.'
+              : 'Recall: tap the cells in the order they lit. Arrow keys move between cells, Enter or Space enters one.'),
             el('li', {}, 'Keys: Backspace or Z undo, H hint (enters the next cell for you; that position scores 0).'),
-            el('li', {}, 'You can submit early; empty positions score 0. The trial submits itself when all cells are entered.'),
+            el('li', {}, `You can submit early; empty positions score 0. The trial submits itself when all ${word}s are entered.`),
           ),
         ),
       ),
@@ -202,10 +243,10 @@ function createTrialArea(puzzle, opts) {
       b.classList.toggle('is-hinted', k >= 0 && trial.hinted.includes(k));
       b.querySelector('.gm-mark').textContent = isLit ? String(trial.step + 1) : k >= 0 ? String(k + 1) : '';
       b.disabled = phase !== 'recall';
-      b.setAttribute('aria-label', `Cell ${cellLabel(n, cell)}${k >= 0 ? `, entered as number ${k + 1}` : ''}`);
+      b.setAttribute('aria-label', `${spotAria(cell)}${k >= 0 ? `, entered as number ${k + 1}` : ''}`);
     });
     [...pips.children].forEach((li, i) => {
-      const doneStep = phase === 'recall' || phase === 'done' || i < trial.step || (i === trial.step && phase === 'side');
+      const doneStep = phase === 'recall' || phase === 'pause' || phase === 'done' || i < trial.step || (i === trial.step && phase === 'side');
       li.className = i === trial.step && phase === 'show' ? 'is-now' : doneStep ? 'is-done' : '';
     });
     const inRecall = phase === 'recall';
@@ -217,9 +258,10 @@ function createTrialArea(puzzle, opts) {
     readyCard.hidden = phase !== 'ready' || !!opts.autoStart;
     sideCard.hidden = phase !== 'side';
     if (phase === 'ready') status.textContent = opts.autoStart ? 'Get ready...' : 'Press Start when you are ready.';
-    else if (phase === 'show') status.textContent = `Watch: cell ${trial.step + 1} of ${L}`;
+    else if (phase === 'show') status.textContent = `Watch: ${word} ${trial.step + 1} of ${L}`;
     else if (phase === 'side') status.textContent = `Side question ${trial.step + 1} of ${L}`;
-    else if (phase === 'recall') status.textContent = `Recall: tap the cells in order (${recall.length} of ${L} entered)`;
+    else if (phase === 'pause') status.textContent = 'Hold the order in mind...';
+    else if (phase === 'recall') status.textContent = `Recall: tap the ${word}s in order (${recall.length} of ${L} entered)`;
     else status.textContent = trial.outcome === 'skipped' ? 'Skipped.' : trial.outcome === 'timeout' ? 'Time is up.' : 'Submitted.';
   }
 
@@ -233,7 +275,9 @@ function createTrialArea(puzzle, opts) {
 
   function showStep() {
     render();
-    say(`Cell ${trial.step + 1}: ${cellLabel(n, trial.litCell)}, ${landmark(n, trial.litCell)}.`);
+    say(circles
+      ? `Circle ${trial.step + 1} of the sequence: ${spotAria(trial.litCell)}.`
+      : `Cell ${trial.step + 1}: ${cellLabel(n, trial.litCell)}, ${landmark(n, trial.litCell)}.`);
     later(() => {
       // Blank the grid briefly, then the side question.
       cells[trial.litCell]?.classList.remove('is-lit');
@@ -294,11 +338,19 @@ function createTrialArea(puzzle, opts) {
     if (trial.phase === 'show') {
       render();
       later(showStep, GAP_MS);
-    } else if (trial.phase === 'recall') {
+    } else if (trial.phase === 'pause') {
       render();
-      say(`Recall: tap the ${L} cells in the order they lit.`);
-      roveTo(0);
-    }
+      say('Hold the order in mind.');
+      later(() => {
+        if (trial.endPause(now())) startRecall();
+      }, puzzle.pauseMs);
+    } else if (trial.phase === 'recall') startRecall();
+  }
+
+  function startRecall() {
+    render();
+    say(`Recall: tap the ${L} ${word}s in the order they lit.`);
+    roveTo(0);
   }
 
   function doTap(cell) {
@@ -306,14 +358,14 @@ function createTrialArea(puzzle, opts) {
     const res = trial.tap(cell, now());
     if (!res.ok) {
       if (res.reason === 'repeat') {
-        message.textContent = `Cell ${cellLabel(n, cell)} is already entered as number ${trial.recall.indexOf(cell) + 1}.`;
+        message.textContent = `${spotAria(cell)} is already entered as number ${trial.recall.indexOf(cell) + 1}.`;
         say(message.textContent);
       }
       return;
     }
     message.textContent = '';
     render();
-    say(`Entered ${cellLabel(n, cell)} as number ${trial.recall.length}.`);
+    say(`Entered ${spotName(cell)} as number ${trial.recall.length}.`);
     if (trial.done) finish();
   }
 
@@ -329,11 +381,11 @@ function createTrialArea(puzzle, opts) {
     const h = trial.hint(now());
     if (!h) return;
     if (h.already !== undefined) {
-      message.textContent = `Hint: number ${h.position + 1} is a cell you entered as number ${h.already + 1}. Undo back to it first.`;
+      message.textContent = `Hint: number ${h.position + 1} is a ${word} you entered as number ${h.already + 1}. Undo back to it first.`;
       say(message.textContent);
       return;
     }
-    message.textContent = `Hint: number ${h.position + 1} was ${cellLabel(n, h.cell)}. That position scores 0.`;
+    message.textContent = `Hint: number ${h.position + 1} was ${spotName(h.cell)}. That position scores 0.`;
     render();
     say(message.textContent);
     if (trial.done) finish();
@@ -356,7 +408,7 @@ function createTrialArea(puzzle, opts) {
   // Roving focus inside the grid during recall.
   let focusCell = 0;
   function roveTo(cell) {
-    focusCell = Math.max(0, Math.min(n * n - 1, cell));
+    focusCell = Math.max(0, Math.min(spots - 1, cell));
     cells.forEach((b, i) => b.setAttribute('tabindex', i === focusCell ? '0' : '-1'));
     cells[focusCell].focus({ preventScroll: true });
   }
@@ -382,6 +434,14 @@ function createTrialArea(puzzle, opts) {
       return;
     }
     if (phase !== 'recall') return;
+    if (circles && /^Arrow(Up|Down|Left|Right)$/.test(e.key)) {
+      // Circles: step through them in reading order.
+      e.preventDefault();
+      const inArea = active && grid.contains(active);
+      const from = inArea ? Number(active.dataset.cell) : focusCell;
+      roveTo(inArea ? from + (e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 1) : from);
+      return;
+    }
     const moves = { ArrowUp: -n, ArrowDown: n, ArrowLeft: -1, ArrowRight: 1 };
     if (e.key in moves) {
       e.preventDefault();
@@ -442,14 +502,26 @@ const STATUS_WORD = { ok: 'Right', hint: 'Hint', order: 'Order', wrong: 'Wrong c
 
 // Correct sequence as a numbered path (circles, solid line) with the player's taps on top
 // (squares, dashed line). Errors get a heavy outline and a cross, so colour is never the only cue.
+// Circles: every circle drawn faint at its place (no grid lines), the same marks on top.
 function pathOverlay(puzzle, recall, positions, { showCorrect = true, showYours = true } = {}) {
+  const circles = isCircles(puzzle);
   const n = puzzle.n;
   const S = 10;
-  const at = (cell, dx = 0, dy = 0) => [(cell % n) * S + S / 2 + dx, Math.floor(cell / n) * S + S / 2 + dy];
-  const s = svg('svg', { viewBox: `0 0 ${n * S} ${n * S}`, class: 'gm-overlay', 'aria-hidden': 'true' });
-  for (let i = 0; i <= n; i++) {
-    s.append(svg('line', { x1: 0, y1: i * S, x2: n * S, y2: i * S, class: 'gm-ov-grid' }));
-    s.append(svg('line', { x1: i * S, y1: 0, x2: i * S, y2: n * S, class: 'gm-ov-grid' }));
+  const W = circles ? 50 : n * S;
+  const at = circles
+    ? (cell, dx = 0, dy = 0) => [puzzle.circles[cell][0] * W + dx, puzzle.circles[cell][1] * W + dy]
+    : (cell, dx = 0, dy = 0) => [(cell % n) * S + S / 2 + dx, Math.floor(cell / n) * S + S / 2 + dy];
+  const s = svg('svg', { viewBox: `0 0 ${W} ${W}`, class: 'gm-overlay', 'aria-hidden': 'true' });
+  if (circles) {
+    puzzle.circles.forEach((_, i) => {
+      const [x, y] = at(i);
+      s.append(svg('circle', { cx: x, cy: y, r: 3.4, class: 'gm-ov-spot' }));
+    });
+  } else {
+    for (let i = 0; i <= n; i++) {
+      s.append(svg('line', { x1: 0, y1: i * S, x2: n * S, y2: i * S, class: 'gm-ov-grid' }));
+      s.append(svg('line', { x1: i * S, y1: 0, x2: i * S, y2: n * S, class: 'gm-ov-grid' }));
+    }
   }
   if (showCorrect) {
     const pts = puzzle.sequence.map((c) => at(c, -1.4, -1.4).join(',')).join(' ');
@@ -488,7 +560,9 @@ function createExplainPanel(puzzle, trial) {
   const result = study ? createTrial(puzzle, { mode: 'practice' }).result() : trial.result();
   const ex = explainTrial(puzzle, result, study ? [] : trial.answers);
   const recall = study ? [] : trial.recall;
-  const holder = el('div', { class: 'gm-overlay-wrap', role: 'img', 'aria-label': `Correct order: ${puzzle.sequence.map((c, i) => `${i + 1} ${cellLabel(puzzle.n, c)}`).join(', ')}.${study ? '' : ` Your order: ${recall.length ? recall.map((c, i) => `${i + 1} ${cellLabel(puzzle.n, c)}`).join(', ') : 'nothing entered'}.`}` });
+  const circles = isCircles(puzzle);
+  const word = circles ? 'circle' : 'cell';
+  const holder = el('div', { class: 'gm-overlay-wrap', role: 'img', 'aria-label': `Correct order: ${puzzle.sequence.map((c, i) => `${i + 1} ${cellLabel(puzzle, c)}`).join(', ')}.${study ? '' : ` Your order: ${recall.length ? recall.map((c, i) => `${i + 1} ${cellLabel(puzzle, c)}`).join(', ') : 'nothing entered'}.`}` });
   const layers = { showCorrect: true, showYours: !study };
   const draw = () => holder.replaceChildren(pathOverlay(puzzle, recall, ex.positions, layers));
   const toggle = (key, label) => {
@@ -505,7 +579,7 @@ function createExplainPanel(puzzle, trial) {
 
   return el('section', { class: 'explain gm-explain', 'aria-label': 'How to solve this trial' },
     study
-      ? el('p', { class: 'muted', text: `${puzzle.length} cells to remember, with a side question after each.` })
+      ? el('p', { class: 'muted', text: `${puzzle.length} ${word}s to remember, with a side question after each.` })
       : el('div', { class: 'result-line' }, badge, el('p', { text: ex.summary })),
     el('h3', { text: study ? 'The sequence' : 'The sequence and your answer' }),
     el('div', { class: 'explain-body' },
@@ -525,9 +599,9 @@ function createExplainPanel(puzzle, trial) {
             el('thead', {}, el('tr', {}, ['#', 'Correct', 'You', 'Result'].map((h) => el('th', { scope: 'col', text: h })))),
             el('tbody', {}, ex.positions.map((p) => el('tr', {},
               el('td', { text: String(p.i + 1) }),
-              el('td', { text: `${p.expectedLabel} ${landmark(puzzle.n, p.expected)}` }),
+              el('td', { text: `${p.expectedLabel} ${landmark(puzzle, p.expected)}` }),
               el('td', { text: p.gotLabel }),
-              el('td', {}, el('span', { class: `badge ${STATUS_BADGE[p.status]}`, text: STATUS_WORD[p.status] }), ` ${p.status === 'order' ? `(cell ${p.belongsAt + 1})` : ''}`),
+              el('td', {}, el('span', { class: `badge ${STATUS_BADGE[p.status]}`, text: circles && p.status === 'wrong' ? 'Wrong circle' : STATUS_WORD[p.status] }), ` ${p.status === 'order' ? `(${word} ${p.belongsAt + 1})` : ''}`),
             ))),
           ),
         ),
@@ -558,7 +632,7 @@ function createExplainPanel(puzzle, trial) {
       el('summary', {}, 'Strategy checklist'),
       el('ul', {}, STRATEGY.map((t) => el('li', { text: t }))),
     ),
-    el('p', { class: 'muted small', text: `Cells are named (row,column), counted from the top left corner. Each position is worth ${POINTS.recall} points and each side question ${POINTS.side}.` }),
+    el('p', { class: 'muted small', text: `${circles ? 'Circles are numbered from the top of the area down, left to right on a level.' : 'Cells are named (row,column), counted from the top left corner.'} Each position is worth ${POINTS.recall} points and each side question ${POINTS.side}.` }),
   );
 }
 
@@ -606,29 +680,72 @@ function coachHost(attempt, puzzle) {
 // ---------------------------------------------------------------- menu
 
 function setMeta(cfg) {
+  if (isCircleSet(cfg.set)) {
+    return `${cfg.circles} circles scattered over the area, sequences of ${cfg.lengths[0]} to ${cfg.lengths[1]} circles, side questions: ${cfg.kinds.map((k) => KIND_NAMES[k]).join(' and ')}. ` +
+      `Each circle lights for ${(cfg.showMs / 1000).toFixed(1)} s; ${cfg.windowMs / 1000} s to answer each side question${cfg.pauseMs ? `; a ${(cfg.pauseMs / 1000).toFixed(1)} s pause before recall` : ''}.`;
+  }
   return `${cfg.n}x${cfg.n} grid, sequences of ${cfg.lengths[0]} to ${cfg.lengths[1]} cells, side questions: ${cfg.kinds.map((k) => KIND_NAMES[k]).join(' and ')}. ` +
     `Each cell shows for ${(cfg.showMs / 1000).toFixed(1)} s; ${cfg.windowMs / 1000} s to answer each side question.`;
 }
 
+// The suggested circles set: recommendedSet over circle levels 1..5, mapped to stored sets 6..10.
+function circlesPick(progress) {
+  const own = progress?.games?.[GAME_ID] ?? {};
+  const view = { ...progress, games: { [GAME_ID]: Object.fromEntries(CIRCLE_CONFIGS.map((c) => [c.level, own[c.set]]).filter(([, v]) => v)) } };
+  return circleSetOf(recommendedSet(view, GAME_ID));
+}
+
+function variantPicker(ctx, variant) {
+  const name = 'gm-variant';
+  return el('fieldset', { class: 'gm-variant' },
+    el('legend', {}, 'Layout'),
+    VARIANTS.map(([v, label]) => {
+      const id = `${name}-${v}`;
+      const box = el('input', {
+        type: 'radio',
+        name,
+        id,
+        value: v,
+        onchange: () => {
+          setVariant(v);
+          ctx.rerender();
+        },
+      });
+      box.checked = v === variant;
+      return el('label', { class: 'gm-variant-option', for: id }, box, ` ${label}`,
+        el('span', { class: 'muted small', text: v === 'circles' ? ' (circles scattered freely, like the real test)' : ' (cells on a square grid)' }));
+    }),
+  );
+}
+
 function renderMenu(ctx) {
   const { root } = ctx;
+  const variant = getVariant();
+  const configs = variant === 'circles' ? CIRCLE_CONFIGS : SET_CONFIGS;
   trackModes(root, GAME_ID);
   root.append(
     gameStart({
       game: GAME_ID,
-      idOf: puzzleId,
-      lede: 'Remember the order cells light up while answering quick side questions in between.',
-      rules: [el('p', {}, 'Cells of a grid light up one at a time. After each one, answer a quick side question before the window closes. ', 'At the end, tap the cells in the order they lit. Holding the path in mind while you judge something else is the skill being trained.'), el('p', { class: 'muted small', text: `Scoring: each position recalled in the right place earns ${POINTS.recall} points and each side question answered right earns ${POINTS.side}; a trial score is points out of the maximum.` })],
+      idOf,
+      above: variantPicker(ctx, variant),
+      pickSet: variant === 'circles' ? circlesPick : null,
+      lede: variant === 'circles'
+        ? 'Remember the order circles light up while answering quick side questions in between.'
+        : 'Remember the order cells light up while answering quick side questions in between.',
+      rules: [el('p', {}, variant === 'circles' ? 'Circles scattered over the area light up one at a time (no grid). After each one, answer a quick side question before the window closes. ' : 'Cells of a grid light up one at a time. After each one, answer a quick side question before the window closes. ', `At the end, tap the ${variant === 'circles' ? 'circles' : 'cells'} in the order they lit. Holding the path in mind while you judge something else is the skill being trained.`), el('p', { class: 'muted small', text: `Scoring: each position recalled in the right place earns ${POINTS.recall} points and each side question answered right earns ${POINTS.side}; a trial score is points out of the maximum.` })],
       practiceText: 'One trial at a time, no clock, with undo and hints at recall, and an optional relaxed mode with no time limit on side questions. Afterwards the coach reviews your answers and shows where you went off the path.',
       timedText: '6 minutes of trials. Pass a trial (every position right, at most 1 side error) and the next is one cell longer; miss and it is one shorter. No undo, no hints, skips are final. Your span is the longest length you passed.',
-      setName: (s) => `Set ${s}: ${SET_CONFIGS[s - 1].name}`,
+      setName: (s) => setTitle(cfgFor(s)),
     }),
     setListHead(),
     el('div', { class: 'toolbar' },
       unlockToggle('gm-unlock-all', ctx.rerender),
       el('a', { class: 'btn', href: '#/analytics' }, 'My progress'),
     ),
-    el('ol', { class: 'set-list', role: 'list' }, SET_CONFIGS.map((cfg) => setCard(cfg))),
+    variant === 'circles'
+      ? el('p', { class: 'muted small', text: 'Circles timed tests give every player the same trials, but are not uploaded to the leaderboard (it ranks the grid sets only).' })
+      : null,
+    el('ol', { class: 'set-list', role: 'list' }, configs.map((cfg) => setCard(cfg))),
   );
 }
 
@@ -638,7 +755,7 @@ function setCard(cfg) {
   const practiceAvg = store.practiceAverage(GAME_ID, cfg.set, PUZZLES_PER_SET);
   const chips = [];
   for (let k = 1; k <= PUZZLES_PER_SET; k++) {
-    const best = entry.practice[puzzleId(cfg.set, k)];
+    const best = entry.practice[idOf(cfg.set, k)];
     const label = best === undefined ? `Trial ${k}, not played` : `Trial ${k}, best score ${pct(best)}`;
     chips.push(
       open
@@ -648,19 +765,33 @@ function setCard(cfg) {
   }
   return el('li', { class: `set-card${open ? '' : ' is-locked'}` },
     el('div', { class: 'card-head' },
-      el('h2', {}, `Set ${cfg.set}: ${cfg.name}`),
+      el('h2', {}, setTitle(cfg)),
       el('span', { class: `badge ${open ? 'badge-ok' : 'badge-soon'}`, text: open ? 'Open' : 'Locked' }),
     ),
     el('p', { class: 'set-meta', text: setMeta(cfg) }),
     progressLine(entry, practiceAvg),
     open
-      ? setActions({ game: GAME_ID, set: cfg.set, idOf: puzzleId, chips, unit: 'trial' })
-      : lockedHint(cfg.set, 'trial'),
+      ? setActions({ game: GAME_ID, set: cfg.set, idOf, chips, unit: 'trial' })
+      : isCircleSet(cfg.set) ? circlesLockedHint(cfg) : lockedHint(cfg.set, 'trial'),
   );
 }
 
+function circlesLockedHint(cfg) {
+  return el('p', { class: 'locked-hint' },
+    el('strong', { text: 'Locked. ' }),
+    `To unlock, score ${pct(UNLOCK_THRESHOLD)} or more in Circles ${cfg.level - 1}: in its timed test, or as your practice average over all 10 trials. `,
+    'Want to look ahead? Tick "Unlock all sets" above.');
+}
+
 function lockedNotice(root, setNo) {
-  lockedPage(root, GAME_ID, setNo, 'trial');
+  if (!isCircleSet(setNo)) return lockedPage(root, GAME_ID, setNo, 'trial');
+  const cfg = cfgFor(setNo);
+  root.append(el('section', { class: 'prose' },
+    el('h1', { text: `${setTitle(cfg)} is locked` }),
+    circlesLockedHint(cfg),
+    el('div', { class: 'after-actions' },
+      el('a', { class: 'btn btn-primary', href: `#/gridmemory/practice/${setNo - 1}/1` }, `Practise Circles ${cfg.level - 1}`),
+      el('a', { class: 'btn btn-quiet', href: '#/gridmemory' }, 'Back to Grid Memory'))));
 }
 
 // ---------------------------------------------------------------- practice
@@ -669,7 +800,7 @@ function lockedNotice(root, setNo) {
 async function renderPractice(ctx, setNo, k, retry = null) {
   const { root } = ctx;
   const alive = aliveCheck(ctx);
-  const cfg = SET_CONFIGS.find((c) => c.set === setNo);
+  const cfg = cfgFor(setNo);
   if (!cfg || (!retry && !(Number.isInteger(k) && k >= 1))) {
     root.append(el('p', { class: 'notice' }, 'Unknown trial. ', el('a', { href: '#/gridmemory' }, 'Back to sets')));
     return;
@@ -767,9 +898,11 @@ async function renderPractice(ctx, setNo, k, retry = null) {
 
   root.append(
     el('div', { class: 'page-head play-head' },
-      el('p', { class: 'crumbs' }, el('a', { href: '#/gridmemory' }, 'Grid Memory'), ` / Set ${setNo}: ${cfg.name}`),
+      el('p', { class: 'crumbs' }, el('a', { href: '#/gridmemory' }, 'Grid Memory'), ` / ${setTitle(cfg)}`),
       el('h1', {}, retry ? 'Review: solve it again before you look' : practiceTitle(k, PUZZLES_PER_SET, 'trial')),
-      el('p', { class: 'muted' }, `${puzzle.length} cells on a ${cfg.n}x${cfg.n} grid. No run clock in practice mode.`),
+      el('p', { class: 'muted' }, isCircles(puzzle)
+        ? `${puzzle.length} of ${puzzle.circles.length} circles light up. No run clock in practice mode.`
+        : `${puzzle.length} cells on a ${cfg.n}x${cfg.n} grid. No run clock in practice mode.`),
       el('label', { class: 'toggle', for: 'gm-relaxed' }, relaxedBox, ' Relaxed: no time limit on side questions'),
       retry ? null : el('div', { class: 'after-actions' }, endButton({ game: GAME_ID, practice: true, onEnd: endPractice }), studyLink(GAME_ID, setNo)),
     ),
@@ -794,7 +927,8 @@ function setExamChrome(on) {
 
 async function renderRun(ctx, setNo, freshMode = false) {
   const { root } = ctx;
-  const cfg = SET_CONFIGS.find((c) => c.set === setNo);
+  const cfg = cfgFor(setNo);
+  const circles = isCircleSet(setNo);
   if (!cfg) {
     root.append(el('p', { class: 'notice' }, 'Unknown set. ', el('a', { href: '#/gridmemory' }, 'Back to sets')));
     return;
@@ -803,8 +937,8 @@ async function renderRun(ctx, setNo, freshMode = false) {
   const data = await loadSet(setNo);
 
   const head = el('div', { class: 'page-head play-head' },
-    el('p', { class: 'crumbs' }, el('a', { href: '#/gridmemory' }, 'Grid Memory'), ` / Set ${setNo}: ${cfg.name}`),
-    el('h1', {}, freshMode ? 'Fresh timed practice (not ranked)' : 'Timed test (ranked)'),
+    el('p', { class: 'crumbs' }, el('a', { href: '#/gridmemory' }, 'Grid Memory'), ` / ${setTitle(cfg)}`),
+    el('h1', {}, freshMode ? 'Fresh timed practice (not ranked)' : circles ? 'Timed test (same trials for everyone, not on the leaderboard)' : 'Timed test (ranked)'),
   );
   const body = el('div', {});
   root.append(head, body);
@@ -856,7 +990,8 @@ async function renderRun(ctx, setNo, freshMode = false) {
     tutorialSlot.replaceChildren(...tutorialArea.hudItems);
     tutorialHost.replaceChildren(tutorialArea.root);
   }
-  const sec = trialSeconds(cfg, cfg.lengths[0]);
+  const sec = circles ? circleTrialSeconds(cfg, cfg.lengths[0]) : trialSeconds(cfg, cfg.lengths[0]);
+  const unit = circles ? 'circle' : 'cell';
   body.append(
     el('section', { class: 'run-intro' },
       el('h2', { text: 'Before you start' }),
@@ -864,17 +999,18 @@ async function renderRun(ctx, setNo, freshMode = false) {
         el('li', {}, el('strong', { text: '6:00 on the clock. ' }), freshMode
           ? 'Trials keep coming until time is up: freshly generated trials of this set that you have not seen before.'
           : 'Trials keep coming until time is up: first this set\'s 10 trials as their lengths come up, then freshly generated ones. Every player gets the same trial at the same length.'),
-        el('li', {}, el('strong', { text: 'Watch, judge, remember. ' }), `Cells light one at a time on a ${cfg.n}x${cfg.n} grid. After each one answer the side question (${cfg.kinds.map((k) => KIND_NAMES[k]).join(', or ')}) within ${cfg.windowMs / 1000} s.`),
-        el('li', {}, el('strong', { text: 'Recall in order. ' }), 'Tap the cells in the order they lit. The trial submits itself when every cell is entered. No undo, no hints.'),
-        el('li', {}, el('strong', { text: 'Staircase. ' }), `The first trial has ${cfg.lengths[0]} cells. Pass (every position right, at most 1 side error) and the next is 1 longer; otherwise 1 shorter. Your span is the longest length you pass.`),
+        el('li', {}, el('strong', { text: 'Watch, judge, remember. ' }), `${circles ? `Circles scattered over the area light one at a time (${cfg.circles} circles)` : `Cells light one at a time on a ${cfg.n}x${cfg.n} grid`}. After each one answer the side question (${cfg.kinds.map((k) => KIND_NAMES[k]).join(', or ')}) within ${cfg.windowMs / 1000} s.${circles && cfg.pauseMs ? ` A ${(cfg.pauseMs / 1000).toFixed(1)} s pause comes before recall.` : ''}`),
+        el('li', {}, el('strong', { text: 'Recall in order. ' }), `Tap the ${unit}s in the order they lit. The trial submits itself when every ${unit} is entered. No undo, no hints.`),
+        el('li', {}, el('strong', { text: 'Staircase. ' }), `The first trial has ${cfg.lengths[0]} ${unit}s. Pass (every position right, at most 1 side error) and the next is 1 longer; otherwise 1 shorter. Your span is the longest length you pass.`),
         el('li', {}, el('strong', { text: 'Score: ' }), `${POINTS.recall} points per position in the right place, ${POINTS.side} per side question right, as a share of the maximum. The run score is the sum.`),
         el('li', {}, el('strong', { text: 'Skip is final. ' }), 'A skipped trial scores 0 and counts as a miss; a best guess always scores at least as much.'),
         el('li', {}, el('strong', { text: 'Pace: ' }), `a ${cfg.lengths[0]}-cell trial takes about ${sec} s.`),
         el('li', {}, el('strong', { text: 'Afterwards: ' }), 'the coach reviews every trial and the whole run. End and review stops the run at any point and shows your score so far; leaving the page saves it the same way. Runs ended early count toward progress and review but not the leaderboard.'),
       ),
       runModeNote(GAME_ID, setNo, freshMode),
+      circles && !freshMode ? el('p', { class: 'muted small', text: 'Circles runs are kept apart from the grid sets and are not uploaded to the leaderboard, which ranks the grid only.' }) : null,
       el('h3', { text: 'Try the sample trial (untimed, not scored)' }),
-      el('p', { class: 'muted', text: 'This is the exact exam screen: grid, side questions, clock and Skip.' }),
+      el('p', { class: 'muted', text: `This is the exact exam screen: ${circles ? 'circles' : 'grid'}, side questions, clock and Skip.` }),
       tutorialHud,
       tutorialMsg,
       tutorialHost,
@@ -900,6 +1036,7 @@ async function renderRun(ctx, setNo, freshMode = false) {
 
   function buildRun() {
     const run = summarizeRun({ id: runId, game: GAME_ID, set: setNo, seed: runSeed, startedAt, endedAt: Date.now(), budgetMs: RUN_MS, attempts: results.map((r) => r.attempt), rank });
+    if (circles) run.var = 'circles';
     run.maxSpan = staircase.maxSpan;
     run.trail = staircase.trail;
     return run;
@@ -916,7 +1053,8 @@ async function renderRun(ctx, setNo, freshMode = false) {
     head.hidden = true;
     const setup = ranked ?? runSetup(GAME_ID, setNo, true);
     runSeed = setup.seed;
-    rank = setup.rank;
+    // Circles: the same deterministic sequence for everyone, but never on the leaderboard (rank 0).
+    rank = circles ? 0 : setup.rank;
     runId = newId('r');
     startedAt = Date.now();
     staircase = createStaircase({ start: cfg.lengths[0], max: cfg.runMax });
@@ -996,10 +1134,11 @@ async function renderRun(ctx, setNo, freshMode = false) {
     const run = saveEndedRun({ recorder, run: buildRun(), exit });
     const slots = Math.max(PUZZLES_PER_SET, results.length);
     const avg = averageEfficiency(run.score, slots);
-    const wasOpen = setNo < SET_CONFIGS.length ? isUnlocked(setNo + 1) : true;
+    const nextSet = nextSetOf(setNo);
+    const wasOpen = nextSet ? isUnlocked(nextSet) : true;
     // Fresh timed practice counts in history and review but not in the set's best ranked score.
     const { improved, best } = ranked ? store.recordRun(GAME_ID, setNo, run.score, slots) : { improved: false, best: store.getSet(GAME_ID, setNo).bestScore };
-    const nowOpen = setNo < SET_CONFIGS.length ? isUnlocked(setNo + 1) : true;
+    const nowOpen = nextSet ? isUnlocked(nextSet) : true;
 
     const puzzlesById = new Map(results.map((r) => [r.puzzle.id, r.puzzle]));
     // Leaving the page: save to the review library without the coach, and render nothing.
@@ -1055,11 +1194,11 @@ async function renderRun(ctx, setNo, freshMode = false) {
           run.trail.map((s) => el('li', { class: s.success ? 'is-pass' : 'is-miss', style: { '--len': s.length } },
             el('span', { class: 'gm-trail-bar', 'aria-hidden': 'true' }),
             el('span', { class: 'gm-trail-label', text: `${s.length} ${s.success ? 'pass' : 'miss'}` })))),
-        runExtras(GAME_ID, setNo, improved, { partial, ranked: !!ranked }),
+        runExtras(GAME_ID, setNo, improved, { partial, ranked: !!ranked && rank === 1, note: circles && ranked ? 'Circles runs count toward your progress, streak and review, but are not uploaded to the leaderboard, which ranks the grid sets only.' : null }),
         takeawaysNode,
-        !wasOpen && nowOpen ? el('p', { class: 'callout callout-ok', text: `Set ${setNo + 1} unlocked. Nice work.` }) : null,
-        avg < UNLOCK_THRESHOLD && setNo < SET_CONFIGS.length && !nowOpen
-          ? el('p', { class: 'callout', text: `Reach ${pct(UNLOCK_THRESHOLD)} average (score / ${slots}) to unlock set ${setNo + 1}.` })
+        !wasOpen && nowOpen ? el('p', { class: 'callout callout-ok', text: `${setTitle(cfgFor(nextSet)).split(':')[0]} unlocked. Nice work.` }) : null,
+        avg < UNLOCK_THRESHOLD && nextSet && !nowOpen
+          ? el('p', { class: 'callout', text: `Reach ${pct(UNLOCK_THRESHOLD)} average (score / ${slots}) to unlock ${setTitle(cfgFor(nextSet)).split(':')[0].toLowerCase()}.` })
           : null,
         el('section', { class: 'coach run-coach', 'aria-label': 'Run coaching' },
           el('h3', { text: 'Run coaching' }),

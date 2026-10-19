@@ -42,6 +42,8 @@ export function playTrial(puzzle, { side = 'right', recall = puzzle.sequence, mo
     } else trial.answer(ans, t);
     t += 300;
   }
+  // Circles with a retention pause: recall opens when the pause ends.
+  if (trial.phase === 'pause') trial.endPause((t += puzzle.pauseMs));
   if (extra) extra(trial, () => (t += tapMs));
   for (const cell of recall) {
     if (trial.done) break;

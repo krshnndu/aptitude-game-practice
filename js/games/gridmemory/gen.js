@@ -184,6 +184,12 @@ function drawSequence(rng, cfg, length) {
 export function generateTrial(rng, cfg, length, id) {
   if (length > cfg.n * cfg.n) throw new Error(`length ${length} does not fit a ${cfg.n}x${cfg.n} grid`);
   const sequence = drawSequence(rng, cfg, length);
+  const distractors = makeDistractors(rng, cfg, length);
+  return { id, n: cfg.n, length, sequence, showMs: cfg.showMs, windowMs: cfg.windowMs, distractors };
+}
+
+// One side question per highlight, answers balanced, no shape repeated (shared with circles.js).
+export function makeDistractors(rng, cfg, length) {
   const kinds = cfg.kinds.length === 1 ? new Array(length).fill(cfg.kinds[0]) : balanced(rng, cfg.kinds, length);
   const symAnswers = balanced(rng, ['yes', 'no'], kinds.filter((k) => k === 'sym').length);
   const parAnswers = balanced(rng, ['even', 'odd'], kinds.filter((k) => k === 'parity').length);
@@ -205,7 +211,7 @@ export function generateTrial(rng, cfg, length, id) {
   for (const d of distractors) {
     if (correctAnswer(d) !== d.answer) throw new Error(`generator bug: stored answer ${d.answer} is wrong`);
   }
-  return { id, n: cfg.n, length, sequence, showMs: cfg.showMs, windowMs: cfg.windowMs, distractors };
+  return distractors;
 }
 
 export function puzzleId(setNo, k) {

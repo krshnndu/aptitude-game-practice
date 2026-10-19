@@ -9,7 +9,7 @@
 // trade-off, the error curve by serial position, order against location errors, time per trial,
 // side question speed, skip policy and the top 3 habits to fix.
 
-import { replayLog, scoreTrial, cellLabel, POINTS } from './state.js';
+import { replayLog, scoreTrial, cellLabel, POINTS, isCircles } from './state.js';
 import { trialFromId } from './gen.js';
 import { median, mean } from '../../core/analytics.js';
 
@@ -139,7 +139,7 @@ export function coachTrial(attempt, puzzle, { history = [] } = {}) {
   const L = puzzle.length;
   const rec = result.recall;
   const side = result.side;
-  const n = puzzle.n;
+  const n = puzzle;
 
   // ---- skip and time-out
   if (result.outcome === 'skipped') {
@@ -168,7 +168,7 @@ export function coachTrial(attempt, puzzle, { history = [] } = {}) {
       if (order.length) {
         findings.push(finding('order-errors', 'fix', order.length,
           `Order lost on ${plural(order.length, 'position')}`,
-          `${listAnd(order.map((p) => `position ${p.i + 1} got ${cellLabel(n, p.got)} (cell ${p.belongsAt + 1} of the sequence)`))}. You remembered these cells but not when they lit.`,
+          `${listAnd(order.map((p) => `position ${p.i + 1} got ${cellLabel(n, p.got)} (${isCircles(puzzle) ? 'circle' : 'cell'} ${p.belongsAt + 1} of the sequence)`))}. You remembered these ${isCircles(puzzle) ? 'circles' : 'cells'} but not when they lit.`,
           { positions: order.map((p) => p.i) }));
       }
       if (wrong.length) {

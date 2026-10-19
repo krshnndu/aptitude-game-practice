@@ -4,6 +4,8 @@
 
 import { createRng } from '../../core/rng.js';
 import { generateFresh, freshSeed, generateTrial, configFor, lengthLadder, PUZZLES_PER_SET } from './gen.js';
+import { isCircleSet, circleKey, generateCircleFresh, circleFreshKit, circleTutorialTrial } from './circles.js';
+import { isCircles } from './state.js';
 
 export const MIN_LENGTH = 2;
 
@@ -37,6 +39,7 @@ export function maxSpanOf(trail) {
 // Identity of a trial for the seen-list: grid, path and side questions. The path alone is not
 // enough (set 1 has only 72 paths of length 2).
 export function trialKey(p) {
+  if (isCircles(p)) return circleKey(p);
   const side = (p.distractors ?? []).map((d) => (d.kind === 'sym' ? `s${d.rows.join('/')}` : `p${d.a}${d.op}${d.b}`)).join(';');
   return `${p.n}|${p.sequence.join(',')}|${side}`;
 }
@@ -52,6 +55,7 @@ const FRESH_TRIES = 30;
 // a length the same number of times see the same trials there.
 export function createRunSource({ puzzles, cfg, seed, shuffle = true, usePool = true, isSeen = () => false }) {
   const rng = createRng(seed);
+  const make = isCircleSet(cfg.set) ? generateCircleFresh : generateFresh;
   const pool = new Map();
   const shipped = new Set(puzzles.map(trialKey));
   if (usePool) {
@@ -68,7 +72,7 @@ export function createRunSource({ puzzles, cfg, seed, shuffle = true, usePool = 
     for (let tries = 0; tries < FRESH_TRIES; tries++) {
       const n = perLength.get(length) ?? 0;
       perLength.set(length, n + 1);
-      const p = generateFresh(cfg, length, freshSeed(seed, length * 100_000 + n));
+      const p = make(cfg, length, freshSeed(seed, length * 100_000 + n));
       const key = trialKey(p);
       last = p;
       if (shipped.has(key) || served.has(key) || isSeen(key)) continue;
@@ -90,6 +94,7 @@ export function createRunSource({ puzzles, cfg, seed, shuffle = true, usePool = 
 export const freshKit = {
   keyOf: trialKey,
   make: (setNo, seed, k) => {
+    if (isCircleSet(setNo)) return circleFreshKit.make(setNo, seed, k);
     const cfg = configFor(setNo);
     return generateFresh(cfg, lengthLadder(cfg)[(k - 1) % PUZZLES_PER_SET], seed);
   },
@@ -97,5 +102,6 @@ export const freshKit = {
 
 // The untimed sample trial before a run: length 2 with the set's own side questions and timing.
 export function tutorialTrial(cfg) {
+  if (isCircleSet(cfg.set)) return circleTutorialTrial(cfg);
   return generateTrial(createRng(0x6d656d + cfg.set), cfg, 2, `gm${cfg.set}-sample`);
 }

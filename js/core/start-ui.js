@@ -21,7 +21,7 @@ const TIPS = {
     practice: ['Each symbol appears once in every row and every column.', 'Tap a ? cell, then tap the symbol that belongs there.', 'Wrong picks are crossed out with the reason, so you can learn and pick again.'],
   },
   gridmemory: {
-    practice: ['Watch the cells light up one by one and remember the order.', 'Between cells, answer the quick side question (Yes or No).', 'At the end, tap the cells in the order they lit.'],
+    practice: ['Watch the circles (or grid cells) light up one by one and remember the order.', 'Between them, answer the quick side question.', 'At the end, tap them in the order they lit.'],
   },
   operatorswitch: {
     practice: ['Each box is a 4 digit code that reorders the shapes: slot 1 takes the item at the position named by the first digit, and so on.', 'Work box by box from left to right.', 'Hint walks you through one step at a time.'],
@@ -59,11 +59,13 @@ export function practiceStart(game, set, idOf, perSet = 10) {
 
 // The top of a game page: breadcrumb, title, one line summary, the two mode cards, study and how to play.
 // rules: nodes for the How to play panel. practiceText, timedText: what each mode does in this game.
-export function gameStart({ game, idOf, lede, rules = [], practiceText, timedText, setName = (s) => `Set ${s}` }) {
+// pickSet(progress): the suggested set when a game has more than the five standard sets in view
+// (Grid Memory's circles variant); default recommendedSet. above: nodes shown above the mode cards.
+export function gameStart({ game, idOf, lede, rules = [], practiceText, timedText, setName = (s) => `Set ${s}`, pickSet = null, above = null }) {
   const progress = store.get();
   const status = gameStatus(progress, game);
   const first = status === 'new';
-  const set = recommendedSet(progress, game);
+  const set = pickSet ? pickSet(progress) : recommendedSet(progress, game);
   const k = practiceStart(game, set, idOf);
   const practiceHref = `#/${game}/practice/${set}/${k}`;
   const how = el('details', { class: 'how-to-play', id: `how-${game}` },
@@ -87,6 +89,7 @@ export function gameStart({ game, idOf, lede, rules = [], practiceText, timedTex
   return el('div', { class: 'game-start' },
     el('p', { class: 'crumbs' }, el('a', { href: '#/' }, 'All games'), ` / ${gameName(game)}`),
     el('div', { class: 'page-head' }, el('h1', { text: gameName(game) }), lede ? el('p', { class: 'lede', text: lede }) : null),
+    above,
     el('section', { class: 'mode-choose', 'aria-label': 'Choose how to play' },
       el('h2', { class: 'section-title', text: first ? 'Start here: Practice' : 'Choose how to play' }),
       el('div', { class: 'mode-cards' },
