@@ -222,6 +222,8 @@ export function sanitizeAttempt(a) {
     : { ...a.metrics };
   if (a.eventsPruned) out.eventsPruned = true;
   if (a.rank === 0 || a.rank === 1) out.rank = a.rank;
+  // Layout variant (Grid Memory 'circles'); absent for the default layout.
+  if (typeof a.var === 'string' && a.var) out.var = a.var.slice(0, 12);
   const dvs = sanitizeDvs(a.dvs);
   if (dvs) out.dvs = dvs;
   out.moves = out.metrics.moves;

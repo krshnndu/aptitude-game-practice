@@ -5,7 +5,8 @@
 import { SET_CONFIGS, trialFromId } from './gen.js';
 import { coachTrial, reviewAttempt, HABITS } from './coach.js';
 import { explainTrial, describePath, pathChunks, divergenceText, questionText, sideReason, answerWord } from './explain.js';
-import { POINTS, cellRC, cellLabel, replayLog, analyzeRecall, correctAnswer } from './state.js';
+import { POINTS, cellRC, cellLabel, replayLog, analyzeRecall, correctAnswer, isCircles } from './state.js';
+import { CIRCLE_CONFIGS, CIRCLE_FRESH_ID, circleTrialFromId, circlePoolTrial, isCircleSet } from './circles.js';
 import { firstDivergence } from '../../core/dvs.js';
 import { checksumOf, fixIds, splitVariant } from '../../core/learn-util.js';
 import { accuracyDim, efficiencyDim, tagDim } from '../../core/dims.js';
@@ -15,6 +16,7 @@ export const GENERATOR_VERSION = 1;
 const PER_POSITION_PAR_MS = 1500;
 
 export function checksum(p) {
+  if (isCircles(p)) return checksumOf({ circles: p.circles, sequence: p.sequence, answers: (p.distractors ?? []).map((d) => d.answer) });
   return checksumOf({ n: p.n, sequence: p.sequence, answers: (p.distractors ?? []).map((d) => d.answer) });
 }
 
@@ -24,17 +26,23 @@ export const correct = (a) => a.outcome === 'solved' && (a.moves ?? 0) - (a.opti
 
 export function refFor(attempt, puzzle = null) {
   const pid = attempt.puzzleId;
-  const generated = /^gm\d-g[0-9a-z]+-\d+$/.test(pid);
+  const generated = /^gm\d-g[0-9a-z]+-\d+$/.test(pid) || CIRCLE_FRESH_ID.test(pid);
   const ref = { pid, set: attempt.set, src: generated ? 'generated' : 'pool', gv: GENERATOR_VERSION };
   if (puzzle) ref.check = checksum(puzzle);
   return ref;
 }
 
-export const needsSet = (ref) => ref.src !== 'generated';
+// Circles pool trials rebuild from their fixed set seed, so they need no set file either.
+// Set file name for sets past the standard five (circles), and their labels for set pickers.
+export const setFile = (set) => (isCircleSet(set) ? `circles-set${set - 5}.json` : null);
+export const EXTRA_SETS = CIRCLE_CONFIGS.map((c) => ({ set: c.set, label: `Circles ${c.level}` }));
+
+export const needsSet = (ref) => ref.src !== 'generated' && !isCircleSet(ref.set);
 export const slowRebuild = () => false;
 
 export function regenerate(ref, setData = null) {
-  if (ref.src === 'generated') return trialFromId(ref.pid);
+  if (ref.src === 'generated') return trialFromId(ref.pid) ?? circleTrialFromId(ref.pid);
+  if (isCircleSet(ref.set)) return circlePoolTrial(ref.pid);
   // A practice repeat of a shipped puzzle ('<id>~r<k>') rebuilds from its base.
   const base = splitVariant(ref.pid).base;
   const p = setData?.puzzles?.find((x) => x.id === base);
@@ -47,6 +55,14 @@ export function tagsFor(attempt, puzzle) {
 
 export function features(p) {
   const kinds = new Set((p.distractors ?? []).map((d) => d.kind));
+  if (isCircles(p)) {
+    return [
+      `${p.circles.length} circles`,
+      `span ${p.length}`,
+      kinds.size > 1 ? 'mixed side questions' : kinds.has('parity') ? 'sum parity side questions' : 'symmetry side questions',
+      p.pauseMs ? 'pause before recall' : 'no pause before recall',
+    ];
+  }
   const lines = pathChunks(p.n, p.sequence).filter((c) => c.kind === 'line').length;
   return [
     `${p.n}x${p.n} grid`,
@@ -72,13 +88,14 @@ export function divergence(attempt, puzzle) {
   return { index: k, text: explainTrial(puzzle, r.result, r.log.answers).divergence };
 }
 
-export const optimalSteps = (puzzle) => describePath(puzzle.n, puzzle.sequence).steps.map((s) => s.text);
+export const optimalSteps = (puzzle) => describePath(puzzle, puzzle.sequence).steps.map((s) => s.text);
 
 // Did vs should. Codes: ans / opt list the cells as row+column digits (1-based, e.g. "13" is row 1,
 // column 3) joined by '.', so formatCode can read them without the puzzle. Rows are the positions
-// then one row per side question ("Side 2: yes").
-const cellCode = (n, cell) => {
-  const { r, c } = cellRC(n, cell);
+// then one row per side question ("Side 2: yes"). Circles are coded "c" + number ("c4").
+const cellCode = (p, cell) => {
+  if (isCircles(p)) return `c${cell + 1}`;
+  const { r, c } = cellRC(p.n, cell);
   return `${r + 1}${c + 1}`;
 };
 
@@ -86,7 +103,7 @@ const cellCode = (n, cell) => {
 export function formatCode(code) {
   const s = String(code ?? '');
   if (!s) return 'nothing';
-  return s.split('.').map((t) => (/^\d\d$/.test(t) ? `(${t[0]},${t[1]})` : t)).join(', ');
+  return s.split('.').map((t) => (/^\d\d$/.test(t) ? `(${t[0]},${t[1]})` : /^c\d+$/.test(t) ? `circle ${t.slice(1)}` : t)).join(', ');
 }
 
 const KIND_LABEL = { order: 'Position error', wrong: 'Content error' };
@@ -98,7 +115,7 @@ export function didVsShould(attempt, puzzle) {
   const lastT = events.length ? events[events.length - 1].t : null;
   const base = Number.isFinite(attempt.startedAt) ? attempt.startedAt : events[0]?.t;
   const elapsed = (t) => (Number.isFinite(t) && Number.isFinite(base) ? Math.max(0, Math.round(t - base)) : Math.round(attempt.metrics?.totalMs ?? 0));
-  const n = puzzle.n;
+  const n = puzzle;
   const sides = puzzle.distractors ?? [];
   if (!events.length && attempt.outcome === 'solved') {
     return { ...empty, note: 'The event log was not kept for this attempt, so the steps cannot be compared.', ans: '', opt: puzzle.sequence.map((c) => cellCode(n, c)).join('.'), lat: elapsed(null) };
@@ -165,7 +182,7 @@ export const parMs = (a) => PER_POSITION_PAR_MS * spanOf(a);
 export const tagLabel = (id) => HABITS[id]?.label ?? id;
 export const TAG_IDS = Object.keys(HABITS);
 export const paceSec = (set) => {
-  const cfg = SET_CONFIGS.find((c) => c.set === set);
+  const cfg = [...SET_CONFIGS, ...CIRCLE_CONFIGS].find((c) => c.set === set);
   return cfg ? Math.round((cfg.lengths[1] * PER_POSITION_PAR_MS) / 1000) : 6;
 };
 

@@ -10,6 +10,11 @@
 //                 | { kind: 'parity', a, op: '+'|'-'|'*', b, answer: 'even'|'odd' }] }
 // Cells are indexed r * n + c from the top left; people see them as 1-based (row,column).
 //
+// Circles variant (var: 'circles', see circles.js): no grid. `circles` lists free positions
+// [[x, y], ...] in 0..1 (reading order), `sequence` holds circle indexes, and an optional `pauseMs`
+// is a blank retention pause between the last side question and recall (phase 'pause').
+// Everything else, scoring included, is shared with the grid.
+//
 // Session events use the shared recorder vocabulary so attempts save through js/core/recorder.js:
 //   select { p: step, d: answer|'miss', ok, rt }   a side question answered (or its window ran out)
 //   select { p: null, d: 'recall' }                 the recall grid appeared
@@ -21,7 +26,7 @@
 // right position and 3 for the side question shown after it. Efficiency = points / max points.
 export const POINTS = { recall: 7, side: 3 };
 export const ANSWERS = { sym: ['yes', 'no'], parity: ['even', 'odd'] };
-export const PHASES = ['ready', 'show', 'side', 'recall', 'done'];
+export const PHASES = ['ready', 'show', 'side', 'pause', 'recall', 'done'];
 // A staircase step counts as passed with every position right and at most this many side errors.
 export const SIDE_ERRORS_ALLOWED = 1;
 
@@ -29,7 +34,23 @@ export function cellRC(n, cell) {
   return { r: Math.floor(cell / n), c: cell % n };
 }
 
+export const isCircles = (p) => Array.isArray(p?.circles);
+// Number of tappable spots: grid cells or circles.
+export const spotCount = (p) => (isCircles(p) ? p.circles.length : p.n * p.n);
+
+// Rough place of a circle in thirds of the play area ("top left", "centre", ...).
+export function circleZone(p, i) {
+  const [x, y] = p.circles[i];
+  const v = y < 1 / 3 ? 'top' : y > 2 / 3 ? 'bottom' : 'middle';
+  const h = x < 1 / 3 ? 'left' : x > 2 / 3 ? 'right' : 'centre';
+  if (v === 'middle' && h === 'centre') return 'centre';
+  if (v === 'middle') return `middle ${h}`;
+  return `${v} ${h}`;
+}
+
+// n: the grid size, or the puzzle (grid or circles).
 export function cellLabel(n, cell) {
+  if (typeof n === 'object' && n !== null) return isCircles(n) ? `circle ${cell + 1}` : cellLabel(n.n, cell);
   return `(${Math.floor(cell / n) + 1},${(cell % n) + 1})`;
 }
 
@@ -178,7 +199,8 @@ export function createTrial(puzzle, { mode = 'practice' } = {}) {
     if (step + 1 < puzzle.length) {
       step++;
       phase = 'show';
-    } else enterRecall(t);
+    } else if (puzzle.pauseMs > 0) phase = 'pause';
+    else enterRecall(t);
     return { ok, answer, rt };
   }
 
@@ -234,6 +256,12 @@ export function createTrial(puzzle, { mode = 'practice' } = {}) {
       if (!ANSWERS[puzzle.distractors[step].kind].includes(value)) return null;
       return recordAnswer(t, value);
     },
+    // The retention pause is over (circles with pauseMs): recall starts.
+    endPause(t) {
+      if (phase !== 'pause') return false;
+      enterRecall(t);
+      return true;
+    },
     sideTimeout(t) {
       if (phase !== 'side') return null;
       return recordAnswer(t, 'miss');
@@ -241,7 +269,7 @@ export function createTrial(puzzle, { mode = 'practice' } = {}) {
     // Returns { ok, reason?, done }.
     tap(cell, t) {
       if (phase !== 'recall') return { ok: false, reason: 'phase' };
-      if (!Number.isInteger(cell) || cell < 0 || cell >= puzzle.n * puzzle.n) return { ok: false, reason: 'cell' };
+      if (!Number.isInteger(cell) || cell < 0 || cell >= spotCount(puzzle)) return { ok: false, reason: 'cell' };
       if (recall.includes(cell)) {
         push(t, { type: 'blocked', p: cell, d: 'repeat' });
         return { ok: false, reason: 'repeat' };

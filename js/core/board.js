@@ -173,11 +173,15 @@ export function track(page) {
 
 // Item event fields: outcome, time and the compact did vs should codes (no free text).
 export function itemExtra(a, rid, i) {
-  return { game: a.game, set: a.set, mode: a.mode, rid: String(rid).slice(0, 20), i, ms: Math.round((a.metrics && a.metrics.totalMs) || 0), ok: a.outcome === 'solved', skip: a.outcome === 'skipped', hint: (a.hintsUsed || 0) > 0, ...rankField(a), ...dvsTelemetry(a.dvs) };
+  return { game: a.game, set: a.set, mode: a.mode, rid: String(rid).slice(0, 20), i, ms: Math.round((a.metrics && a.metrics.totalMs) || 0), ok: a.outcome === 'solved', skip: a.outcome === 'skipped', hint: (a.hintsUsed || 0) > 0, ...rankField(a), ...varField(a), ...dvsTelemetry(a.dvs) };
 }
 // rank: 1 ranked timed test, 0 fresh timed practice (absent outside timed tests).
 export function rankField(x) {
   return x && (x.rank === 0 || x.rank === 1) ? { rank: x.rank } : {};
+}
+// var: a game's layout variant (Grid Memory 'circles'); absent for the default layout.
+export function varField(x) {
+  return x && typeof x.var === 'string' ? { var: x.var.slice(0, 12) } : {};
 }
 
 let wired = false;
@@ -187,11 +191,11 @@ export function startTelemetry() {
     const rid = a.runId || a.id;
     if (a.mode === 'exam' && !(rid in itemIdx)) { activeRun = { rid: String(rid).slice(0, 20), game: a.game, set: a.set, t0: Date.now(), items: 0, ...rankField(a) }; }
     if (activeRun && String(rid).slice(0, 20) === activeRun.rid) activeRun.items += 1;
-    if (a.mode === 'exam' && !(rid in itemIdx)) ev('run_start', a.game, { game: a.game, set: a.set, mode: 'exam', rid: String(rid).slice(0, 20), ...rankField(a) });
+    if (a.mode === 'exam' && !(rid in itemIdx)) ev('run_start', a.game, { game: a.game, set: a.set, mode: 'exam', rid: String(rid).slice(0, 20), ...rankField(a), ...varField(a) });
     const i = itemIdx[rid] = (itemIdx[rid] || 0) + 1;
     ev('item', a.game, itemExtra(a, rid, i));
   });
-  onRunSaved((r) => { activeRun = null; lastEnd = Date.now(); ev('run_end', r.game, { game: r.game, set: r.set, mode: 'exam', rid: String(r.id).slice(0, 20), n: Math.round(r.attempted || 0), ms: Math.round(r.durationMs || 0), ...rankField(r), ...(isPartial(r) ? { part: 1, exit: r.exit || 'early' } : {}) }); });
+  onRunSaved((r) => { activeRun = null; lastEnd = Date.now(); ev('run_end', r.game, { game: r.game, set: r.set, mode: 'exam', rid: String(r.id).slice(0, 20), n: Math.round(r.attempted || 0), ms: Math.round(r.durationMs || 0), ...rankField(r), ...varField(r), ...(isPartial(r) ? { part: 1, exit: r.exit || 'early' } : {}) }); });
   addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && !leftPage) { leftPage = true; ev('leave', curPage, { dur: Math.min(Date.now() - pageT0, 14400000) }); } else if (document.visibilityState === 'visible' && leftPage) { leftPage = false; pageT0 = Date.now(); } });
   document.addEventListener('click', (e) => { const a = e.target && e.target.closest && e.target.closest('a[href^="http"]'); if (a) { try { const u = new URL(a.href); if (u.hostname !== location.hostname) ev('link_click', curPage, { tgt: u.hostname.slice(0, 40), ...(a.dataset.via ? { via: a.dataset.via } : {}) }); } catch { /* ignore */ } } }, true);
   const errSeen = new Set(); const errOk = (k) => { if (errSeen.has(k) || errSeen.size >= 8) return false; errSeen.add(k); return true; };
@@ -255,7 +259,8 @@ export function bumpStreak() {
 // Result-screen extras: personal-best badge, streak line, and the opt-in compare strip.
 // partial: an ended-early run, which is not uploaded, so it gets no rank or percentile.
 // ranked: false for fresh timed practice, which is never uploaded either.
-export function runExtras(game, set, improved, { partial = false, ranked = true } = {}) {
+// note: replaces the not-ranked line (Grid Memory circles runs are deterministic but unranked).
+export function runExtras(game, set, improved, { partial = false, ranked = true, note = null } = {}) {
   const st = bumpStreak();
   try {
     const raw = ls.get('cogprep.progress.v1');
@@ -279,7 +284,8 @@ export function runExtras(game, set, improved, { partial = false, ranked = true 
   if (improved) box.append(el('p', { class: 'callout callout-ok', text: 'Personal best! New top score for this set.' }));
   box.append(el('p', { class: 'muted', text: `Streak: ${st.count} day${st.count === 1 ? '' : 's'} in a row (best ${st.best}). ${st.total} runs finished on this browser.` }));
   const slot = el('div', {}); box.append(slot);
-  if (!ranked) slot.append(el('p', { class: 'muted small', text: 'Fresh timed practice counts toward your progress, streak and review, but is not uploaded to the leaderboard or ranked.' }));
+  if (!ranked && note) slot.append(el('p', { class: 'muted small', text: note }));
+  else if (!ranked) slot.append(el('p', { class: 'muted small', text: 'Fresh timed practice counts toward your progress, streak and review, but is not uploaded to the leaderboard or ranked.' }));
   else if (partial) slot.append(el('p', { class: 'muted small', text: 'Runs ended early count toward your progress, streak and review, but are not uploaded to the leaderboard or ranked.' }));
   else if (compareOn()) setTimeout(async () => { const n = await compareStrip(game, set); if (n) slot.replaceChildren(n); }, 2500);
   return box;

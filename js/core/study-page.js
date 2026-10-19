@@ -50,7 +50,11 @@ export async function mountStudy(main, rest) {
     unknownGame(main, 'study');
     return () => {};
   }
-  const set = SETS.includes(Number(setRaw)) ? Number(setRaw) : 1;
+  // Extra sets an adapter declares (Grid Memory circles 6..10) follow the standard five.
+  const extra = ADAPTERS[game]?.EXTRA_SETS ?? [];
+  const sets = [...SETS.map((k) => ({ set: k, label: `Set ${k}` })), ...extra];
+  const set = sets.some((x) => x.set === Number(setRaw)) ? Number(setRaw) : 1;
+  const setLabel = sets.find((x) => x.set === set).label;
   const d = disposerList();
   const root = el('div', { class: 'learn study' });
   main.append(root);
@@ -59,11 +63,11 @@ export async function mountStudy(main, rest) {
   root.append(
     el('div', { class: 'page-head' },
       el('p', { class: 'crumbs' }, el('a', { href: `#/${game}` }, gameName(game)), ' / Study mode'),
-      el('h1', { text: `${gameName(game)}: study mode, set ${set}` }),
+      el('h1', { text: `${gameName(game)}: study mode, ${setLabel.toLowerCase()}` }),
       el('p', { class: 'lede', text: `Browse every ${label} in the set with its optimal solution walkthrough. No timer, nothing is scored or saved. Try to solve each one in your head before you open it.` })),
     gameTabs(game, (g) => `#/study/${g}/${set}`, 'Study mode by game'),
     el('div', { class: 'toolbar', role: 'group', 'aria-label': 'Sets' },
-      SETS.map((k) => el('a', { class: `btn btn-small${k === set ? ' btn-primary' : ''}`, href: `#/study/${game}/${k}`, 'aria-current': k === set ? 'page' : null }, `Set ${k}`)),
+      sets.map(({ set: k, label: text }) => el('a', { class: `btn btn-small${k === set ? ' btn-primary' : ''}`, href: `#/study/${game}/${k}`, 'aria-current': k === set ? 'page' : null }, text)),
       el('a', { class: 'btn btn-small', href: `#/report/${game}` }, 'Strategy sheet')),
   );
   const list = el('div', { class: 'study-list' }, el('p', { class: 'muted', text: 'Loading the set...' }));

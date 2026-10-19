@@ -102,9 +102,16 @@ export function checkPuzzle(p, cfg) {
     }
     if (cfg.noLine && p.length >= 3 && isLine(p.n, p.sequence)) bad('sequence lies on one straight line');
   }
+  checkSides(p, cfg, bad);
+  return problems;
+}
+
+// Side question checks shared by the grid and the circles validators: one question per
+// highlight, each answer recomputed here. bad(message) collects problems.
+export function checkSides(p, cfg, bad) {
   if (!Array.isArray(p.distractors) || p.distractors.length !== p.length) {
     bad('need one side question after every highlight');
-    return problems;
+    return;
   }
   const shapes = new Set();
   p.distractors.forEach((d, i) => {
@@ -133,7 +140,6 @@ export function checkPuzzle(p, cfg) {
     const truth = solveSide(d);
     if (truth !== d.answer) bad(`${at}: stored answer ${d.answer}, correct answer ${truth}`);
   });
-  return problems;
 }
 
 // Returns a list of problem strings for a whole set file.

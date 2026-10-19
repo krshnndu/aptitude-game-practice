@@ -4,7 +4,7 @@
 // by recorderFields() so metrics.efficiency is the trial's combined score.
 
 import { computeMetrics, newId } from '../../core/recorder.js';
-import { recorderFields } from './state.js';
+import { recorderFields, isCircles } from './state.js';
 
 export const GAME_ID = 'gridmemory';
 
@@ -20,6 +20,7 @@ export function buildAttempt(trial, { set, mode, runId = null, source = 'pool', 
     mode,
     runId,
     source,
+    ...(isCircles(trial.puzzle) ? { var: 'circles' } : {}),
     startedAt,
     optimal: f.optimal,
     outcome: f.outcome,

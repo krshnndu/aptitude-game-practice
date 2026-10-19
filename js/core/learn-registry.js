@@ -27,7 +27,8 @@ const setCache = new Map();
 export function loadSetData(game, set) {
   const key = `${game}:${set}`;
   if (!setCache.has(key)) {
-    const url = new URL(`../../data/sets/${game}/set${set}.json`, import.meta.url);
+    const file = ADAPTERS[game]?.setFile?.(set) ?? `set${set}.json`;
+    const url = new URL(`../../data/sets/${game}/${file}`, import.meta.url);
     setCache.set(key, fetch(url).then((r) => {
       if (!r.ok) throw new Error(`set ${set} (${r.status})`);
       return r.json();
