@@ -3,7 +3,7 @@
 // this file only renders and wires input. Every attempt is logged through the core recorder.
 
 import { el } from '../../core/dom.js';
-import { gameStart, setActions, setListHead, lockedHint, lockedPage, progressLine, unlockToggle, trackModes } from '../../core/start-ui.js';
+import { gameStart, setActions, setListHead, lockedHint, lockedPage, progressLine, unlockToggle, trackModes, timedNudge } from '../../core/start-ui.js';
 import { runExtras } from '../../core/board.js';
 import { Countdown, formatClock } from '../../core/timer.js';
 import { createStore } from '../../core/store.js';
@@ -506,6 +506,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
       coachPanel(attempt, puzzle, cfg.paceSec),
     );
     after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
+    after.append(timedNudge('patternrule', setNo));
     after.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
   }
 

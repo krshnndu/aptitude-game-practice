@@ -3,7 +3,7 @@
 // through the core recorder and reviewed by the coach.
 
 import { el } from '../../core/dom.js';
-import { gameStart, setActions, setListHead, lockedHint, lockedPage, progressLine, unlockToggle, trackModes } from '../../core/start-ui.js';
+import { gameStart, setActions, setListHead, lockedHint, lockedPage, progressLine, unlockToggle, trackModes, timedNudge } from '../../core/start-ui.js';
 import { runExtras } from '../../core/board.js';
 import { Countdown, formatClock } from '../../core/timer.js';
 import { createStore } from '../../core/store.js';
@@ -672,6 +672,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
       trackExplain(createExplainPanel(puzzle, { placements: game.placements, solved, wrongChecks: game.wrongChecks, outcome, attempt }), attempt),
     );
     after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
+    after.append(timedNudge('digitequation', setNo));
     after.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
   }
 

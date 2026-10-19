@@ -152,3 +152,10 @@ export function lockedPage(root, game, setNo, unit = 'puzzle') {
       el('a', { class: 'btn', href: `#/${game}/run/${setNo - 1}` }, `Timed test: Set ${setNo - 1}`),
       el('a', { class: 'btn btn-quiet', href: `#/${game}` }, `Back to ${gameName(game)}`))));
 }
+
+// After a practice puzzle: invite the player to a scored timed test (this is what fills the leaderboard).
+export function timedNudge(game, set) {
+  return el('div', { class: 'callout timed-nudge', role: 'note' },
+    el('p', {}, el('strong', { text: 'Ready for the real thing? ' }), 'The timed test is 6 minutes and puts your score on the leaderboard.'),
+    el('a', { class: 'btn btn-primary', href: `#/${game}/run/${set}` }, 'Start the timed test'));
+}

@@ -16,7 +16,7 @@ import { createRunStream, generateFresh, freshSeed, TUTORIAL_PUZZLE } from './st
 import { coachPuzzle, coachRun } from './coach.js';
 import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry, stampDvs } from '../../core/learn-hooks.js';
 import { dvsPanel, dvsRunSection } from '../../core/dvs-ui.js';
-import { gameStart, setActions, setListHead, lockedHint, lockedPage, progressLine, unlockToggle, trackModes } from '../../core/start-ui.js';
+import { gameStart, setActions, setListHead, lockedHint, lockedPage, progressLine, unlockToggle, trackModes, timedNudge } from '../../core/start-ui.js';
 import { endButton, guardRun, saveEndedRun, isLeave, isPartial, partialBanner, runLearning, studyLink, resume } from '../../core/endrun-ui.js';
 
 const GAME_ID = 'blockslide';
@@ -660,6 +660,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
       trackExplain(createExplainPanel(puzzle, { moves: game.moves, solved }, ctx, dvsPanel(GAME_ID, attempt, puzzle)), attempt),
     );
     after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
+    after.append(timedNudge('blockslide', setNo));
     after.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
   }
 

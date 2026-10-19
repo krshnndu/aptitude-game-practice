@@ -85,7 +85,7 @@ export function mountBoard(main) {
   }
   function card(s, minPct) {
     const head = el('div', { class: 'lb-head' }, el('h2', {}, 'Set ' + s.set), el('span', { class: 'muted' }, s.players ? `${s.players} player${s.players === 1 ? '' : 's'}${s.median !== null ? `, median ${s.median}` : ''}` : 'No runs yet'));
-    if (!s.top.length) return el('section', { class: 'lb-card' }, head, el('p', { class: 'muted lb-empty' }, 'No runs yet. Be the first.'));
+    if (!s.top.length) return el('section', { class: 'lb-card' }, head, el('p', { class: 'muted lb-empty' }, 'No runs yet. ', el('a', { href: `#/${curGame}/run/${s.set}` }, 'Be the first: take the timed test.')));
     const mine = s.top.find((r) => r.me);
     const rows = s.top.map((r) => {
       const acc = r.attempted ? Math.round(100 * r.solved / r.attempted) : 0;
@@ -188,8 +188,9 @@ export function startTelemetry() {
   onRunSaved((r) => { activeRun = null; lastEnd = Date.now(); ev('run_end', r.game, { game: r.game, set: r.set, mode: 'exam', rid: String(r.id).slice(0, 20), n: Math.round(r.attempted || 0), ms: Math.round(r.durationMs || 0), ...(isPartial(r) ? { part: 1, exit: r.exit || 'early' } : {}) }); });
   addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && !leftPage) { leftPage = true; ev('leave', curPage, { dur: Math.min(Date.now() - pageT0, 14400000) }); } else if (document.visibilityState === 'visible' && leftPage) { leftPage = false; pageT0 = Date.now(); } });
   document.addEventListener('click', (e) => { const a = e.target && e.target.closest && e.target.closest('a[href^="http"]'); if (a) { try { const u = new URL(a.href); if (u.hostname !== location.hostname) ev('link_click', curPage, { tgt: u.hostname.slice(0, 40) }); } catch { /* ignore */ } } }, true);
-  addEventListener('error', (e) => { ev('js_error', curPage, { name: String(e.message || 'error').replace(/[^A-Za-z0-9 ._]/g, '').slice(0, 24), src: String(e.filename || '').split('/').pop().slice(0, 40), line: e.lineno || 0 }); });
-  addEventListener('unhandledrejection', () => ev('js_error', curPage, { name: 'unhandledrejection' }));
+  const errSeen = new Set(); const errOk = (k) => { if (errSeen.has(k) || errSeen.size >= 8) return false; errSeen.add(k); return true; };
+  addEventListener('error', (e) => { if (!errOk(String(e.message) + (e.lineno || 0))) return; ev('js_error', curPage, { name: String(e.message || 'error').replace(/[^A-Za-z0-9 ._]/g, '').slice(0, 24), src: String(e.filename || '').split('/').pop().slice(0, 40), line: e.lineno || 0 }); });
+  addEventListener('unhandledrejection', () => { if (errOk('rej')) ev('js_error', curPage, { name: 'unhandledrejection' }); });
   addEventListener('orientationchange', () => {
     try {
       const o = (screen.orientation && screen.orientation.type) || (innerWidth > innerHeight ? 'landscape' : 'portrait');
