@@ -56,7 +56,8 @@ export function regenerate(ref, setData = null) {
   const { base, tag } = splitVariant(ref.pid);
   const p = setData?.puzzles?.find((x) => x.id === base);
   if (!p) return null;
-  return tag ? transformPuzzle(p, tag) : p;
+  // Practice variants carry the slot after the transform ('rot90-v11').
+  return tag ? { ...transformPuzzle(p, tag.replace(/-v\d+$/, '')), id: ref.pid } : p;
 }
 
 export function tagsFor(attempt, puzzle) {

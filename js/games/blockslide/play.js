@@ -17,7 +17,7 @@ import { coachPuzzle, coachRun } from './coach.js';
 import { noteAttempt, noteRun, trackExplain, peekRetry, completeRetry, stampDvs } from '../../core/learn-hooks.js';
 import { dvsPanel, dvsRunSection } from '../../core/dvs-ui.js';
 import { gameStart, setActions, setListHead, lockedHint, lockedPage, progressLine, unlockToggle, trackModes, timedNudge, runModeNote, practiceTitle } from '../../core/start-ui.js';
-import { practicePuzzleAsync, runSetup, seenFilter, markSeen, isFreshArg } from '../../core/fresh-play.js';
+import { practicePuzzleAsync, runSetup, seenFilter, markSeen, isFreshArg, aliveCheck, notePlayed } from '../../core/fresh-play.js';
 import { practiceSeed } from '../../core/fresh.js';
 import { cid } from '../../core/board.js';
 import { endButton, guardRun, saveEndedRun, isLeave, isPartial, partialBanner, runLearning, studyLink, resume } from '../../core/endrun-ui.js';
@@ -585,6 +585,7 @@ function lockedNotice(root, setNo) {
 // retry: a puzzle handed over by the review library (any set, generated or variant), played blind.
 async function renderPractice(ctx, setNo, k, retry = null) {
   const { root } = ctx;
+  const alive = aliveCheck(ctx);
   const cfg = SET_CONFIGS.find((c) => c.set === setNo);
   if (!cfg || (!retry && !(Number.isInteger(k) && k >= 1))) {
     root.append(el('p', { class: 'notice' }, 'Unknown puzzle. ', el('a', { href: '#/blockslide' }, 'Back to sets')));
@@ -597,7 +598,9 @@ async function renderPractice(ctx, setNo, k, retry = null) {
   if (!retry) {
     const building = k > PUZZLES_PER_SET ? el('p', { class: 'muted', role: 'status', text: setNo >= 4 ? 'Building a fresh puzzle. On this set that can take several seconds.' : 'Building a fresh puzzle.' }) : null;
     if (building) root.append(building);
-    const slot = await practicePuzzleAsync({ game: GAME_ID, set: setNo, k, puzzles: (await loadSet(setNo)).puzzles, kit: practiceKit, makeAsync: buildOne });
+    const slot = await practicePuzzleAsync({ game: GAME_ID, set: setNo, k, puzzles: (await loadSet(setNo)).puzzles, kit: practiceKit, makeAsync: buildOne, alive });
+    // Left the page while it was building: nothing marked seen, no prefetch, nothing appended.
+    if (!slot) return;
     building?.remove();
     ({ puzzle, source } = slot);
     if (k >= PUZZLES_PER_SET && setNo >= 4) buildOne(setNo, practiceSeed(cid(), GAME_ID, setNo, k + 1, 0)).catch(() => {});
@@ -619,6 +622,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
     stampDvs(GAME_ID, attempt, puzzle);
     recorder.saveAttempt(attempt);
     noteAttempt(GAME_ID, attempt, [], puzzle);
+    notePlayed(GAME_ID, setNo, k);
     return true;
   }
   function leave() {
@@ -662,6 +666,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
       after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
       return;
     }
+    notePlayed(GAME_ID, setNo, k);
     // Hinted solves still count, but the coach flags them so you know to try again unaided. Only the
     // shipped 10 make up the practice average; fresh puzzles count in history and review.
     if (k <= PUZZLES_PER_SET) store.recordPractice(GAME_ID, setNo, puzzle.id, eff);
@@ -702,11 +707,31 @@ async function renderPractice(ctx, setNo, k, retry = null) {
 
 const newWorker = () => new Worker(new URL('./gen.worker.js', import.meta.url), { type: 'module' });
 
+// Let the page paint (a building notice) before a build that blocks the main thread for seconds.
+const nextPaint = () => new Promise((resolve) => {
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => setTimeout(resolve, 0));
+  else setTimeout(resolve, 0);
+});
+
+// Page-session caches stay small: past max entries the oldest goes.
+const CACHE_MAX = 8;
+function capMap(map, onEvict = () => {}) {
+  while (map.size > CACHE_MAX) {
+    const [key, value] = map.entries().next().value;
+    map.delete(key);
+    onEvict(value);
+  }
+}
+
 // Practice slots past the shipped 10: the generator, the key the seen-list stores, and a rotated or
 // mirrored shipped puzzle when no fresh one can be built.
 const practiceKit = {
   ...freshKit,
-  variant: (base, seed) => transformPuzzle(base, VARIANT_TRANSFORMS[seed % VARIANT_TRANSFORMS.length]),
+  // The slot in the id keeps two slots that land on the same transform apart (review keys by id).
+  variant: (base, seed, k) => {
+    const t = VARIANT_TRANSFORMS[seed % VARIANT_TRANSFORMS.length];
+    return { ...transformPuzzle(base, t), id: `${base.id}~${t}-v${k}` };
+  },
 };
 
 // One puzzle from a seed, built in a worker (memoised by set and seed, so a prefetch is reused).
@@ -718,7 +743,7 @@ const oneCache = new Map();
 function buildOne(setNo, seed) {
   const key = `${setNo}:${seed}`;
   if (oneCache.has(key)) return oneCache.get(key);
-  const sync = () => Promise.resolve().then(() => generateFresh(setNo, seed));
+  const sync = () => nextPaint().then(() => generateFresh(setNo, seed));
   let p;
   if (setNo <= 3) p = sync();
   else {
@@ -751,7 +776,16 @@ function buildOne(setNo, seed) {
   }
   p.catch(() => oneCache.delete(key));
   oneCache.set(key, p);
+  capMap(oneCache);
   return p;
+}
+
+// Leaving Block Slide: stop the practice worker. Pending builds reject (their pages are gone).
+function stopOneWorker() {
+  oneWorker?.terminate();
+  oneWorker = null;
+  for (const job of onePending.values()) job.reject(new Error('stopped'));
+  onePending.clear();
 }
 
 // Fresh timed practice: this browser's puzzles, built in a module worker. Without workers, sets 1
@@ -783,7 +817,8 @@ function createFreshSource(setNo, seed) {
       }
       if (!worker && setNo <= 3) {
         try {
-          return generateFresh(setNo, freshSeed(seed, syncK++));
+          // Salted: the worker already served freshSeed(seed, 0..), so this stream must not repeat it.
+          return generateFresh(setNo, freshSeed(seed ^ 0x5bd1e995, syncK++));
         } catch {
           return null;
         }
@@ -800,9 +835,11 @@ function createFreshSource(setNo, seed) {
 }
 
 // Ranked run: the k-th fresh puzzle is always the one from the fixed seed, whoever plays and however
-// fast the device is. Built ahead in a worker from the moment the run screen opens and kept for the
-// page session; when the next one is not ready the run waits for it with the clock paused. A seed
-// the generator cannot use counts as failed for everyone (the stream then serves a fixed variant).
+// fast the device is. Built ahead in a worker from the moment the run screen opens; the worker stops
+// when the run ends or the screen goes, the built puzzles stay cached (last CACHE_MAX sets and seeds)
+// for a restart. When the next one is not ready the run waits for it with the clock paused; without
+// a worker it is built on the main thread after the waiting notice paints. A seed the generator
+// cannot use counts as failed for everyone (the stream then serves a fixed variant).
 const AHEAD = 6;
 const rankedJobs = new Map();
 function rankedSource(setNo, seed) {
@@ -811,8 +848,14 @@ function rankedSource(setNo, seed) {
   if (!job) {
     job = { results: [], worker: null, wake: null };
     rankedJobs.set(key, job);
+    capMap(rankedJobs, (old) => {
+      old.worker?.terminate();
+      old.worker = null;
+      old.wake?.();
+    });
   }
   let taken = 0;
+  let stopped = false;
   const build = (k) => {
     try {
       return generateFresh(setNo, freshSeed(seed, k));
@@ -843,11 +886,15 @@ function rankedSource(setNo, seed) {
   }
   ensureWorker();
   return {
-    // Ready when built, or when there is no worker (then take() builds it on the spot).
-    ready: () => job.results[taken] !== undefined || !job.worker,
+    ready: () => job.results[taken] !== undefined,
     async wait() {
       while (job.results[taken] === undefined && job.worker) await new Promise((r) => { job.wake = r; });
       job.wake = null;
+      // No worker (none available, or it failed): build here once the waiting notice has painted.
+      if (job.results[taken] === undefined && !stopped) {
+        await nextPaint();
+        if (job.results[taken] === undefined && !stopped) job.results[taken] = build(taken);
+      }
     },
     take() {
       if (job.results[taken] === undefined) job.results[taken] = build(taken);
@@ -856,6 +903,7 @@ function rankedSource(setNo, seed) {
       return p;
     },
     stop() {
+      stopped = true;
       job.worker?.terminate();
       job.worker = null;
       job.wake?.();
@@ -1086,7 +1134,7 @@ async function renderRun(ctx, setNo, freshMode = false) {
     if (area && (exit === 'time' || current?.log.events.length)) record('timeout');
     area?.destroy();
     area = null;
-    if (!ranked) fresh?.stop();
+    fresh?.stop();
     setExamChrome(false);
     head.hidden = false;
 
@@ -1248,5 +1296,9 @@ export async function mountBlockSlide(main, args = []) {
     }
   }
   await draw();
-  return disposeAll;
+  return () => {
+    disposeAll();
+    // Off to another page: no practice prefetch is needed any more.
+    if (typeof location === 'undefined' || !location.hash.startsWith('#/blockslide')) stopOneWorker();
+  };
 }

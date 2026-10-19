@@ -38,17 +38,35 @@ export const practiceSeed = (cid, game, set, k, j = 0) => mixSeed('practice', ci
 // The n-th fresh timed run of this browser on a game and set.
 export const freshRunSeed = (cid, game, set, n) => mixSeed('fresh', cid, game, set, n);
 
+// cyrb53: a 53-bit string hash (two 32-bit lanes), so 2000 stored ids stay far from a collision.
+export function hash53(str, seed = 0) {
+  let h1 = 0xdeadbeef ^ seed;
+  let h2 = 0x41c6ce57 ^ seed;
+  const s = String(str);
+  for (let i = 0; i < s.length; i++) {
+    const ch = s.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+  h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+  h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+
 // Short stored form of a puzzle key: game plus a hash, so 2000 entries stay small.
-export const seenId = (game, key) => `${game}:${hash32(key).toString(36)}`;
+export const seenId = (game, key) => `${game}:${hash53(key).toString(36)}`;
 
 // Seen-list: { v: 1, keys: [[id, owner]], runs: { 'game:set': n }, slots: { 'game:set': k } },
-// keys oldest first and capped; slots: the highest practice slot shown per set.
+// keys oldest first and capped; slots: the highest practice slot played (an attempt) per set.
 // owner: the practice slot that showed the puzzle ('p<set>.<k>') or 'f' (fresh timed). A slot may
 // show its own puzzle again (a reload), anything else skips it.
+// Writes merge with the stored copy first (union of keys, highest counters), so two open tabs do
+// not drop each other's entries.
 export function createSeenList(storage, { cap = SEEN_CAP } = {}) {
   let data = null;
-  const load = () => {
-    if (data) return data;
+  const read = () => {
     let raw = null;
     try {
       raw = JSON.parse(storage?.getItem(SEEN_KEY) || 'null');
@@ -58,11 +76,33 @@ export function createSeenList(storage, { cap = SEEN_CAP } = {}) {
     const keys = Array.isArray(raw?.keys) ? raw.keys.filter((e) => Array.isArray(e) && typeof e[0] === 'string') : [];
     const runs = raw?.runs && typeof raw.runs === 'object' ? raw.runs : {};
     const slots = raw?.slots && typeof raw.slots === 'object' ? raw.slots : {};
-    data = { v: 1, keys: keys.slice(-cap), runs, slots, index: new Map(keys.slice(-cap).map(([id, o]) => [id, o ?? ''])) };
+    return { keys, runs, slots };
+  };
+  const build = ({ keys, runs, slots }) => {
+    const kept = keys.slice(-cap);
+    return { v: 1, keys: kept, runs, slots, index: new Map(kept.map(([id, o]) => [id, o ?? ''])) };
+  };
+  const load = () => {
+    data ??= build(read());
+    return data;
+  };
+  const maxInt = (a, b) => Math.max(Number.isInteger(a) ? a : 0, Number.isInteger(b) ? b : 0);
+  // Stored entries first (another tab may have added some), then ours not stored yet.
+  const refresh = () => {
+    const d = load();
+    const stored = read();
+    const ids = new Set(stored.keys.map((e) => e[0]));
+    const keys = [...stored.keys, ...d.keys.filter((e) => !ids.has(e[0]))];
+    const runs = { ...stored.runs };
+    for (const [k, v] of Object.entries(d.runs)) runs[k] = maxInt(runs[k], v);
+    const slots = { ...stored.slots };
+    for (const [k, v] of Object.entries(d.slots)) slots[k] = maxInt(slots[k], v);
+    data = build({ keys, runs, slots });
     return data;
   };
   const save = () => {
     try {
+      refresh();
       storage?.setItem(SEEN_KEY, JSON.stringify({ v: 1, keys: data.keys, runs: data.runs, slots: data.slots }));
     } catch {
       // storage full or blocked: the list still works for this page
@@ -90,7 +130,12 @@ export function createSeenList(storage, { cap = SEEN_CAP } = {}) {
     },
     // Next fresh timed run number for a game and set (0, 1, ...), counted per browser.
     nextRun(game, set) {
-      const d = load();
+      let d = load();
+      try {
+        d = refresh();
+      } catch {
+        // keep the in-memory copy
+      }
       const k = `${game}:${set}`;
       const n = Number.isInteger(d.runs[k]) ? d.runs[k] : 0;
       d.runs[k] = n + 1;
@@ -138,16 +183,18 @@ export function pickPracticePuzzle({ game, set, k, cid, make, keyOf, shipped = n
   return null;
 }
 
-// Same, for a generator that returns a promise (Block Slide builds in a worker).
-export async function pickPracticePuzzleAsync({ game, set, k, cid, make, keyOf, shipped = new Set(), seen = null, tries = SLOT_TRIES }) {
+// Same, for a generator that returns a promise (Block Slide builds in a worker). alive(): false once
+// the page that asked is gone, then it stops trying and returns null.
+export async function pickPracticePuzzleAsync({ game, set, k, cid, make, keyOf, shipped = new Set(), seen = null, tries = SLOT_TRIES, alive = () => true }) {
   const owner = practiceOwner(set, k);
-  for (let j = 0; j < tries; j++) {
+  for (let j = 0; j < tries && alive(); j++) {
     let p = null;
     try {
       p = await make(practiceSeed(cid, game, set, k, j));
     } catch {
       p = null;
     }
+    if (!alive()) return null;
     if (!p) continue;
     const key = keyOf(p);
     if (shipped.has(key) || seen?.has(game, key, owner)) continue;

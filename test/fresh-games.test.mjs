@@ -237,3 +237,16 @@ test('blockslide: ranked fallback is a fixed variant when a fresh puzzle cannot 
   // A repeat from the generator is not served twice in a run.
   assert.equal(a.slice(10).filter((s) => s.startsWith('generated:')).length, 1);
 });
+
+test('practice: a disposed page gets no slot and nothing is marked; slots are noted on play, not on show', async () => {
+  const { practicePuzzle, practicePuzzleAsync, notePlayed, nextFreshSlot } = await import('../js/core/fresh-play.js');
+  const puzzles = [{ id: 'x1-01', key: 'a' }];
+  const kit = { keyOf: (p) => p.key, make: () => null };
+  assert.equal(practicePuzzle({ game: 'tst', set: 1, k: 11, puzzles, kit, alive: () => false }), null);
+  assert.equal(await practicePuzzleAsync({ game: 'tst', set: 1, k: 11, puzzles, kit, makeAsync: async () => null, alive: () => false }), null);
+  const shown = practicePuzzle({ game: 'tst', set: 1, k: 11, puzzles, kit });
+  assert.equal(shown.puzzle.id, 'x1-01~r11', 'a repeat of a shipped puzzle gets its own id');
+  assert.equal(nextFreshSlot('tst', 1, 10), 11, 'only shown, not played');
+  notePlayed('tst', 1, 11);
+  assert.equal(nextFreshSlot('tst', 1, 10), 12);
+});

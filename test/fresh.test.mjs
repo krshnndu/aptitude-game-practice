@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  hash32, rankedSeed, practiceSeed, freshRunSeed, seenId, createSeenList, pickPracticePuzzle, pickPracticePuzzleAsync,
+  hash32, hash53, rankedSeed, practiceSeed, freshRunSeed, seenId, createSeenList, pickPracticePuzzle, pickPracticePuzzleAsync,
   practiceOwner, SEEN_KEY, FRESH_OWNER,
 } from '../js/core/fresh.js';
 import { memoryStorage } from '../js/core/store.js';
@@ -175,4 +175,41 @@ test('fresh timed run: saved locally but never queued or posted to /submit', asy
     globalThis.localStorage = saved.localStorage;
     globalThis.fetch = saved.fetch;
   }
+});
+
+test('seen-list: 53-bit ids, and two tabs on one storage merge instead of overwriting', () => {
+  const h = hash53('blockslide:key');
+  assert.ok(Number.isSafeInteger(h) && h >= 0 && h < 2 ** 53);
+  assert.notEqual(hash53('a'), hash53('b'));
+  const storage = memoryStorage();
+  const tabA = createSeenList(storage);
+  const tabB = createSeenList(storage);
+  tabA.has('g', 'x');
+  tabB.has('g', 'x');
+  tabA.add('g', 'a1', 'f');
+  tabB.add('g', 'b1', 'f');
+  tabA.noteSlot('g', 1, 13);
+  tabB.noteSlot('g', 1, 12);
+  assert.equal(tabA.nextRun('g', 1), 0);
+  assert.equal(tabB.nextRun('g', 1), 1, 'run counter is read back before it is bumped');
+  const later = createSeenList(storage);
+  assert.equal(later.has('g', 'a1'), true);
+  assert.equal(later.has('g', 'b1'), true);
+  assert.equal(later.lastSlot('g', 1), 13);
+  assert.equal(later.nextRun('g', 1), 2);
+});
+
+test('practice slot (async): stops and returns null once the page is gone', async () => {
+  let calls = 0;
+  const make = async (seed) => {
+    calls++;
+    return { id: `g${seed}`, key: `k${seed}` };
+  };
+  let alive = true;
+  const seen = createSeenList(memoryStorage());
+  const pending = pickPracticePuzzleAsync({ game: 'g', set: 1, k: 11, cid: 'c', make, keyOf: (p) => p.key, seen, alive: () => alive });
+  alive = false;
+  assert.equal(await pending, null);
+  assert.equal(calls, 1);
+  assert.equal(seen.size, 0);
 });

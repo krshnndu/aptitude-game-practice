@@ -4,7 +4,7 @@
 
 import { el } from '../../core/dom.js';
 import { gameStart, setActions, setListHead, lockedHint, lockedPage, progressLine, unlockToggle, trackModes, timedNudge, runModeNote, practiceTitle } from '../../core/start-ui.js';
-import { practicePuzzle, runSetup, seenFilter, markSeen, isFreshArg } from '../../core/fresh-play.js';
+import { practicePuzzle, runSetup, seenFilter, markSeen, isFreshArg, aliveCheck, notePlayed } from '../../core/fresh-play.js';
 import { runExtras } from '../../core/board.js';
 import { Countdown, formatClock } from '../../core/timer.js';
 import { createStore } from '../../core/store.js';
@@ -668,6 +668,7 @@ function lockedNotice(root, setNo) {
 // retry: a puzzle handed over by the review library (any set or source), played blind.
 async function renderPractice(ctx, setNo, k, retry = null) {
   const { root } = ctx;
+  const alive = aliveCheck(ctx);
   const cfg = SET_CONFIGS.find((c) => c.set === setNo);
   if (!cfg || (!retry && !(Number.isInteger(k) && k >= 1))) {
     root.append(el('p', { class: 'notice' }, 'Unknown trial. ', el('a', { href: '#/gridmemory' }, 'Back to sets')));
@@ -675,7 +676,9 @@ async function renderPractice(ctx, setNo, k, retry = null) {
   }
   if (!retry && !isUnlocked(setNo)) return lockedNotice(root, setNo);
   // Past the shipped 10: a fresh trial for this browser on the set's length ladder.
-  const slot = retry ? null : practicePuzzle({ game: GAME_ID, set: setNo, k, puzzles: (await loadSet(setNo)).puzzles, kit: freshKit });
+  const slot = retry ? null : practicePuzzle({ game: GAME_ID, set: setNo, k, puzzles: (await loadSet(setNo)).puzzles, kit: freshKit, alive });
+  // The page was left while the set loaded.
+  if (!retry && !slot) return;
   const puzzle = retry ? retry.puzzle : slot.puzzle;
   const slotSource = () => (relaxedPractice ? 'relaxed' : slot?.source ?? 'pool');
 
@@ -694,6 +697,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
     stampDvs(GAME_ID, attempt, puzzle);
     recorder.saveAttempt(attempt);
     noteAttempt(GAME_ID, attempt, [], puzzle);
+    notePlayed(GAME_ID, setNo, k);
     return true;
   }
   function leave() {
@@ -744,6 +748,7 @@ async function renderPractice(ctx, setNo, k, retry = null) {
       after.querySelector('.after-actions .btn-primary')?.focus({ preventScroll: true });
       return;
     }
+    notePlayed(GAME_ID, setNo, k);
     // Only the shipped 10 make up the practice average; fresh trials count in history and review.
     if (k <= PUZZLES_PER_SET) store.recordPractice(GAME_ID, setNo, puzzle.id, attempt.metrics.efficiency);
     after.replaceChildren(

@@ -7,7 +7,7 @@ import { coachTrial, reviewAttempt, HABITS } from './coach.js';
 import { explainTrial, describePath, pathChunks, divergenceText, questionText, sideReason, answerWord } from './explain.js';
 import { POINTS, cellRC, cellLabel, replayLog, analyzeRecall, correctAnswer } from './state.js';
 import { firstDivergence } from '../../core/dvs.js';
-import { checksumOf, fixIds } from '../../core/learn-util.js';
+import { checksumOf, fixIds, splitVariant } from '../../core/learn-util.js';
 import { accuracyDim, efficiencyDim, tagDim } from '../../core/dims.js';
 
 export const GAME_ID = 'gridmemory';
@@ -35,7 +35,10 @@ export const slowRebuild = () => false;
 
 export function regenerate(ref, setData = null) {
   if (ref.src === 'generated') return trialFromId(ref.pid);
-  return setData?.puzzles?.find((x) => x.id === ref.pid) ?? null;
+  // A practice repeat of a shipped puzzle ('<id>~r<k>') rebuilds from its base.
+  const base = splitVariant(ref.pid).base;
+  const p = setData?.puzzles?.find((x) => x.id === base);
+  return p ? { ...p, id: ref.pid } : null;
 }
 
 export function tagsFor(attempt, puzzle) {

@@ -139,3 +139,30 @@ test('a changed generator is detected by the checksum, not silently replayed', (
   const changed = { ...data, puzzles: [{ ...p, answer: (p.answer + 1) % p.options.length }, ...data.puzzles.slice(1)] };
   assert.notEqual(os.checksum(os.regenerate(ref, changed)), ref.check);
 });
+
+test('practice fallbacks past slot 10 get per-slot ids that still rebuild in review', () => {
+  // No variant (Digit Equation, Operator Switch, Grid Memory): a repeat '<id>~r<k>'.
+  for (const [adapter, loadSet] of [[de, deSet], [os, osSet], [gm, gmSet]]) {
+    const data = loadSet(2);
+    const base = data.puzzles[3];
+    const ids = [11, 21].map((k) => {
+      const p = { ...base, id: `${base.id}~r${k}` };
+      const { again } = roundTrip(adapter, p, 2, data);
+      assert.equal(again.id, p.id);
+      return again.id;
+    });
+    assert.notEqual(ids[0], base.id);
+    assert.notEqual(ids[0], ids[1]);
+  }
+  // Block Slide: the transform plus the slot, so two slots on the same transform stay apart.
+  const data = bsSet(4);
+  const base = data.puzzles[2];
+  const ids = [11, 19].map((k) => {
+    const p = { ...transformPuzzle(base, 'rot90'), id: `${base.id}~rot90-v${k}` };
+    const { ref, again } = roundTrip(bs, p, 4, data);
+    assert.equal(ref.src, 'variant');
+    assert.deepEqual(again, p);
+    return again.id;
+  });
+  assert.notEqual(ids[0], ids[1]);
+});

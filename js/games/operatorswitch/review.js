@@ -4,7 +4,7 @@ import { SET_CONFIGS, generateFresh } from './gen.js';
 import { coachPuzzle, readLog, errorFor, HABITS } from './coach.js';
 import { explainPuzzle, optionText } from './explain.js';
 import { boxCount } from './state.js';
-import { checksumOf, seedFromId, fixIds } from '../../core/learn-util.js';
+import { checksumOf, seedFromId, fixIds, splitVariant } from '../../core/learn-util.js';
 import { firstDivergence } from '../../core/dvs.js';
 import { accuracyDim, efficiencyDim, firstMoveDim, tagDim } from '../../core/dims.js';
 
@@ -32,7 +32,10 @@ export const slowRebuild = () => false;
 
 export function regenerate(ref, setData = null) {
   if (ref.src === 'generated') return Number.isFinite(ref.seed) ? generateFresh(ref.set, ref.seed) : null;
-  return setData?.puzzles?.find((x) => x.id === ref.pid) ?? null;
+  // A practice repeat of a shipped puzzle ('<id>~r<k>') rebuilds from its base.
+  const base = splitVariant(ref.pid).base;
+  const p = setData?.puzzles?.find((x) => x.id === base);
+  return p ? { ...p, id: ref.pid } : null;
 }
 
 export function tagsFor(attempt, puzzle) {
